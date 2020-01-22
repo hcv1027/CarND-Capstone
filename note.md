@@ -67,9 +67,29 @@ double PurePursuit::calcCurvature(geometry_msgs::Point target) const
 }
 ```
 
+![Relation between linear velocity and angular velocity](./imgs/linear_and_angular_velocity.png)
+
+Lateral acceleration is **Centripetal Acceleration** (I'm not sure about this part). The formula of **Centripetal Acceleration** is $a=v^2/R$. The relation of linear velocity and angular velocity is $v=omega*R$. So we can also compute **Centripetal Acceleration** by $a=v*omega$.
+```c++
+PurePursuit::outputTwist {
+  // Limit the lateral acceleration to g_lateral_accel_limit
+  // lateral_acceleration = linear_velocity * angular_velocity;
+  double g_lateral_accel_limit = 5.0;
+}
+```
+
 #### libwaypoint_follower.cpp
 
 It includes all tool functions for `pure_pursuit_core`.
 
 ---
 
+### twist_controller
+
+#### Config
+
+1. Wheelbase<p>
+   ![Wheelbase](./imgs/Wheelbase_and_Track.png)
+2. Brake deadband?
+3. Steering ratio?
+4. 
