@@ -97,4 +97,13 @@ It includes all tool functions for `pure_pursuit_core`.
    ![Wheelbase](./imgs/Wheelbase_and_Track.png)
 2. Brake deadband?
 3. Steering ratio?
-4. 
+4. fual capacity is used for compute more precise mass of vehicle
+5. Break should be in units of torque.(Newton meters)
+6. Frequency does matter here. Target: 50 hz. Less than 20 hz will shutdown.
+7. Throttle: 0~1
+8. Low pass filter is filtering out all of the high frequency noise in the velocity.
+9. Suggest to modify waypoints_follower to check if vehicle follows the waypoints all the time.
+
+---
+
+### tl_detector
