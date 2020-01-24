@@ -29,6 +29,11 @@ def decelerate(self, waypoints):
 
 I think it works like a local path planner, receives a trajectory from topic `/base_waypoints`, and generae a final trajectory based on dynamic conditions.(Ex: Traffic light, obstacles, ect.)
 
+Walkthrough:<p>
+1. Using KDTree so search closest waypoint
+2. Using loop function to control publish frequency, 50 hz
+3. Make sure the closest waypoint return from KDTree is in front of our car, not behind out car. For this requirement, we use hyperplane, and compute dot product.
+
 ---
 
 ### waypoint_follower
