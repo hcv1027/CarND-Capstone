@@ -33,6 +33,7 @@ Walkthrough:<p>
 1. Using KDTree so search closest waypoint
 2. Using loop function to control publish frequency, 50 hz
 3. Make sure the closest waypoint return from KDTree is in front of our car, not behind out car. For this requirement, we use hyperplane, and compute dot product.
+4. We need to do some logic check when we loop all the way back around.
 
 ---
 
@@ -104,6 +105,45 @@ It includes all tool functions for `pure_pursuit_core`.
 8. Low pass filter is filtering out all of the high frequency noise in the velocity.
 9. Suggest to modify waypoints_follower to check if vehicle follows the waypoints all the time.
 
+```c++
+// Convert mile/hour to meter/second
+inline double mph2ms(double mph) { return mph * 0.44704; }
+
+// Convert meter/second to mile/hour
+inline double ms2mph(double ms) { return ms * 2.2369; }
+```
+
 ---
 
 ### tl_detector
+
+#### tl_classifier.py
+
+Q&A: [Difference between SSD and Mobilenet](https://stackoverflow.com/questions/50585597/difference-between-ssd-and-mobilenet)
+
+---
+
+### Trobleshooting
+
+#### 1. *The AttributeError: 'SteeringReport' object has no attribute 'steering_wheel_angle_cmd'* in docker container
+Solution: Download `CarND-Capstone/ros/src/dbw_mkz_msgs` from the `docker` branch of [this](https://github.com/vishal-kvn/CarND-Capstone) repository.
+
+#### 2. *IndexError: tuple index out of range* when turning on camera
+Solution: I follow [this github issue](https://github.com/udacity/CarND-Capstone/issues/107), upgrade my `Pillow` from `2.2.1` to `6.0.0` with this command: `pip install pillow==6.0.0 --upgrade`
+
+#### 3. Avoid simulator latency issue with camera on
+
+They're not realy useful.
+
+[Latency Is Not An Issue Anymore When Camera Is Enabled](https://medium.com/@marcin.sielski/capstone-project-for-self-driving-car-nanodegree-program-3c54c3c704bf)
+
+[josehoras/Self-Driving-Car-Nanodegree-Capstone ](https://github.com/josehoras/Self-Driving-Car-Nanodegree-Capstone#ii-choose-and-test-a-model-from-the-model-zoo)
+
+---
+
+### Current issue
+
+1. CublicSpline crash
+2. Fail to find jmt parameters!
+3. end_wp_idx 11101 out of bound! Max: 10901
+4. Red to green will stop first.

@@ -66,10 +66,13 @@ class TLDetector(object):
             self.waypoints_2d = [[waypoint.pose.pose.position.x,
                                   waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
             self.waypoints_tree = KDTree(self.waypoints_2d)
+            # rospy.loginfo("Receive base_waypoints")
 
     def traffic_cb(self, msg):
         # rospy.loginfo("Receive traffic light")
         self.lights = msg.lights
+        # TODO: This should not be called here!
+        self.image_cb(msg)
 
     def image_cb(self, msg):
         """Identifies red lights in the incoming camera image and publishes the index
@@ -92,15 +95,17 @@ class TLDetector(object):
         if self.state != state:
             self.state_count = 0
             self.state = state
+            # rospy.loginfo("Set state_count = 0")
         elif self.state_count >= STATE_COUNT_THRESHOLD:
             self.last_state = self.state
             light_wp = light_wp if state == TrafficLight.RED else -1
             self.last_wp = light_wp
-            rospy.loginfo("Closest red light: %d", Int32(light_wp))
+            # rospy.loginfo("Closest red light: %d", light_wp)
             self.upcoming_red_light_pub.publish(Int32(light_wp))
         else:
             self.upcoming_red_light_pub.publish(Int32(self.last_wp))
         self.state_count += 1
+        # rospy.loginfo("state_count: %d", self.state_count)
 
     def get_closest_waypoint(self, x, y):
         """Identifies the closest path waypoint to the given position
@@ -115,7 +120,6 @@ class TLDetector(object):
         # TODO implement
         if self.waypoints_tree is None:
             rospy.logerr("self.waypoints_tree is None")
-            closest_idx = self.waypoints_tree.query([x, y], 1)[1]
             return -1
         else:
             closest_idx = self.waypoints_tree.query([x, y], 1)[1]
@@ -155,7 +159,7 @@ class TLDetector(object):
         closest_light = None
         line_wp_idx = None
 
-        if self.curr_pose is not None:
+        if self.curr_pose is not None and self.base_waypoints is not None:
             car_wp_idx = self.get_closest_waypoint(
                 self.curr_pose.pose.position.x, self.curr_pose.pose.position.y)
 
@@ -174,7 +178,7 @@ class TLDetector(object):
 
         if closest_light is not None:
             state = self.get_light_state(closest_light)
-            rospy.loginfo("Closest traffic state: %d", state)
+            # rospy.loginfo("Closest traffic state: %d", state)
             return line_wp_idx, state
         return -1, TrafficLight.UNKNOWN
 
