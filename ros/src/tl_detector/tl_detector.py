@@ -72,7 +72,7 @@ class TLDetector(object):
         # rospy.loginfo("Receive traffic light")
         self.lights = msg.lights
         # TODO: This should not be called here!
-        self.image_cb(msg)
+        # self.image_cb(msg)
 
     def image_cb(self, msg):
         """Identifies red lights in the incoming camera image and publishes the index
@@ -85,6 +85,15 @@ class TLDetector(object):
         self.has_image = True
         self.camera_image = msg
         light_wp, state = self.process_traffic_lights()
+        # if light_wp >= 0:
+        #     if state == TrafficLight.UNKNOWN:
+        #         rospy.loginfo("TL state: UNKNOWN")
+        #     elif state == TrafficLight.GREEN:
+        #         rospy.loginfo("TL state: GREEN")
+        #     elif state == TrafficLight.YELLOW:
+        #         rospy.loginfo("TL state: YELLOW")
+        #     elif state == TrafficLight.RED:
+        #         rospy.loginfo("TL state: RED")
 
         '''
         Publish upcoming red lights at camera frequency.
@@ -136,16 +145,20 @@ class TLDetector(object):
 
         """
         # For testing, just return the traffic light state
-        return light.state
+        # return light.state
 
-        # if(not self.has_image):
-        #     self.prev_light_loc = None
-        #     return False
+        if self.has_image is False:
+            self.prev_light_loc = None
+            return False
 
-        # cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
 
-        # # Get classification
-        # return self.light_classifier.get_classification(cv_image)
+        # (rows, cols, channels) = cv_image.shape
+        # rospy.loginfo("Img, size: %d, %d, %d,", rows, cols, channels)
+        # rospy.loginfo("Img, type: {}".format(type(cv_image)))
+
+        # Get classification
+        return self.light_classifier.get_classification(cv_image)
 
     def process_traffic_lights(self):
         """Finds closest visible traffic light, if one exists, and determines its
