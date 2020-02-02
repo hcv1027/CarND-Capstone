@@ -173,7 +173,7 @@ class WaypointUpdater(object):
             else:
                 final_lane = self.generate_lane(closest_wp_idx)
                 self.prev_final_waypoints = []
-        rospy.loginfo("closest_wp_idx: %d", closest_wp_idx)
+        # rospy.loginfo("closest_wp_idx: %d", closest_wp_idx)
         # rospy.loginfo("final_lane size: %d", len(final_lane.waypoints))
         # rospy.loginfo("wp[0] vel: %f",
         #               final_lane.waypoints[0].twist.twist.linear.x)
