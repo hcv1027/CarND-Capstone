@@ -186,8 +186,8 @@ class WaypointUpdater(object):
             self.stopline_pub.publish(lane)
 
     def generate_jmt_waypoints(self, closest_wp_idx, end_wp_idx, end_vel):
-        rospy.loginfo("closest_wp_idx: %d, end_wp_idx: %d, curr_vel: %f, end_vel: %f",
-                      closest_wp_idx, end_wp_idx, self.curr_twist[-1].twist.linear.x, end_vel)
+        # rospy.loginfo("closest_wp_idx: %d, end_wp_idx: %d, curr_vel: %f, end_vel: %f",
+        #               closest_wp_idx, end_wp_idx, self.curr_twist[-1].twist.linear.x, end_vel)
         # rospy.loginfo("start: (%f, %f), end: (%f, %f)",
         #               self.base_waypoints.waypoints[closest_wp_idx].pose.pose.position.x,
         #               self.base_waypoints.waypoints[closest_wp_idx].pose.pose.position.y,
