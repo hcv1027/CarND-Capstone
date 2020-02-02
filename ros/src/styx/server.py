@@ -68,7 +68,8 @@ def trafficlights(sid, data):
 @sio.on('image')
 def image(sid, data):
     global camera_counter
-    if camera_counter % 20 == 0:
+    if camera_counter % 5 == 0:
+        camera_counter = 0
         bridge.publish_camera(data)
     camera_counter += 1
 

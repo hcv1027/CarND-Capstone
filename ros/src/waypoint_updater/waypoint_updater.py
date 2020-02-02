@@ -155,8 +155,21 @@ class WaypointUpdater(object):
                 final_lane = self.generate_jmt_waypoints(
                     closest_wp_idx, self.stopline_wp_idx - self.stop_buffer, 0.0)
                 if len(final_lane.waypoints) == 0:
+                    rospy.logwarn(
+                        "Fail to generate jmt plan, just stop directlly.")
                     final_lane.waypoints = self.base_waypoints.waypoints[
-                        closest_wp_idx:closest_wp_idx+LOOKAHEAD_WPS]
+                        closest_wp_idx:self.stopline_wp_idx - self.stop_buffer]
+                    wp_size = len(final_lane.waypoints)
+                    curr_vel = self.curr_twist[-1].twist.linear.x
+                    if wp_size > 0:
+                        delta_vel = curr_vel / wp_size
+                    else:
+                        delta_vel = self.max_vel
+                    for i, wp in enumerate(final_lane.waypoints):
+                        vel = curr_vel - (i+1) * delta_vel
+                        if vel < 0.1:
+                            vel = 0.0
+                        wp.twist.twist.linear.x = vel
                 self.prev_final_waypoints = final_lane.waypoints
         else:
             # Try to follow default base_waypoints
@@ -186,8 +199,9 @@ class WaypointUpdater(object):
             self.stopline_pub.publish(lane)
 
     def generate_jmt_waypoints(self, closest_wp_idx, end_wp_idx, end_vel):
-        # rospy.loginfo("closest_wp_idx: %d, end_wp_idx: %d, curr_vel: %f, end_vel: %f",
-        #               closest_wp_idx, end_wp_idx, self.curr_twist[-1].twist.linear.x, end_vel)
+        if self.curr_twist[-1].twist.linear.x < end_vel:
+            rospy.loginfo("closest_wp_idx: %d, end_wp_idx: %d, curr_vel: %f, end_vel: %f",
+                          closest_wp_idx, end_wp_idx, self.curr_twist[-1].twist.linear.x, end_vel)
         # rospy.loginfo("start: (%f, %f), end: (%f, %f)",
         #               self.base_waypoints.waypoints[closest_wp_idx].pose.pose.position.x,
         #               self.base_waypoints.waypoints[closest_wp_idx].pose.pose.position.y,
@@ -222,6 +236,8 @@ class WaypointUpdater(object):
 
         if prev_closest_idx >= 0 and abs(self.prev_final_waypoints[-1].twist.twist.linear.x - end_vel) < 0.5:
             lane.waypoints = self.prev_final_waypoints[prev_closest_idx:]
+            if end_vel != 0.0:
+                rospy.loginfo("Use prev plan")
             # rospy.loginfo("prev_closest_idx: %d, vel: %f",
             #               prev_closest_idx, lane.waypoints[0].twist.twist.linear.x)
             if len(lane.waypoints) < LOOKAHEAD_WPS:
@@ -292,7 +308,13 @@ class WaypointUpdater(object):
                 sample_xy.append([self.base_waypoints.waypoints[i].pose.pose.position.x,
                                   self.base_waypoints.waypoints[i].pose.pose.position.y])
             # Sort waypoint accroding to x coordinate, spline needs x to be sorted.
-            sample_xy = np.array(sorted(sample_xy, key=lambda x: x[0]))
+            sample_xy = sorted(sample_xy, key=lambda x: x[0])
+            # Remove the xy point whose x coordinate is too close to previous xy point.
+            safe_sample_xy = [sample_xy[0]]
+            for i in range(1, len(sample_xy)):
+                if abs(sample_xy[i][0] - sample_xy[i-1][0]) > 0.01:
+                    safe_sample_xy.append(sample_xy[i])
+            sample_xy = np.array(safe_sample_xy)
             try:
                 cs = CubicSpline(sample_xy[:, 0], sample_xy[:, 1])
             except:
@@ -584,7 +606,7 @@ class WaypointUpdater(object):
         self.stopline_wp_idx = msg.data
         # pass
         # if self.stopline_wp_idx >= 0:
-        #     rospy.loginfo("Receive traffic wp: %d", self.stopline_wp_idx)
+        # rospy.loginfo("Receive traffic wp: %d", self.stopline_wp_idx)
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later

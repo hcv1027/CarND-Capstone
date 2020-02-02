@@ -1,4 +1,5 @@
 from styx_msgs.msg import TrafficLight
+from std_msgs.msg import Bool
 import tensorflow as tf
 import numpy as np
 # import matplotlib.pyplot as plt
@@ -20,6 +21,9 @@ COLOR_LIST = sorted([c for c in cmap.keys()])
 class TLClassifier(object):
     def __init__(self):
         # TODO load classifier
+        self.output_img = False
+        rospy.Subscriber('/show_tl_classifier', Bool, self.output_image_cb)
+
         self.cwd = os.path.dirname(os.path.realpath(__file__))
         SSD_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph.pb'
         # SSD_GRAPH_FILE = self.cwd + \
@@ -42,6 +46,9 @@ class TLClassifier(object):
             'detection_classes:0')
         rospy.loginfo("Load graph complete")
         self.idx = 0
+
+    def output_image_cb(self, msg):
+        self.output_img = msg.data
 
     def get_classification(self, image):
         """Determines the color of the traffic light in the image
@@ -68,7 +75,7 @@ class TLClassifier(object):
             scores = np.squeeze(scores)
             classes = np.squeeze(classes)
 
-            confidence_cutoff = 0.1
+            confidence_cutoff = 0.4
             # Filter boxes with a confidence score less than `confidence_cutoff`
             boxes, scores, classes = self.filter_boxes(
                 confidence_cutoff, boxes, scores, classes)
@@ -76,6 +83,7 @@ class TLClassifier(object):
             # rospy.loginfo("Shape of classes: {}".format(classes.shape))
             state = TrafficLight.UNKNOWN
             state_count = [0, 0, 0, 0]
+            # rospy.loginfo("Box count: {}".format(classes.shape[0]))
             for i in range(classes.shape[0]):
                 # rospy.loginfo('classes[{}]: {}'.format(i, classes[i]))
                 class_type = int(classes[i]) - 1
@@ -99,17 +107,14 @@ class TLClassifier(object):
             elif state_count[TrafficLight.GREEN] >= 2:
                 state = TrafficLight.GREEN
 
-            # The current box coordinates are normalized to a range between 0 and 1.
-            # This converts the coordinates actual location on the image.
-            # rospy.loginfo("image.shape: {}".format(image.shape))
-            # height, width, channels = image.shape
-            # box_coords = self.to_image_coords(boxes, height, width)
-
-            # Each class with be represented by a differently colored box
-            # self.draw_boxes(image, box_coords, classes, scores)
-
-            # plt.figure(figsize=(12, 8))
-            # plt.imshow(image)
+            if self.output_img:
+                # The current box coordinates are normalized to a range between 0 and 1.
+                # This converts the coordinates actual location on the image.
+                # rospy.loginfo("image.shape: {}".format(image.shape))
+                height, width, channels = image.shape
+                box_coords = self.to_image_coords(boxes, height, width)
+                # Each class with be represented by a differently colored box
+                self.draw_boxes(image, box_coords, classes, scores)
 
         return state
 
@@ -159,17 +164,23 @@ class TLClassifier(object):
         for i in range(len(boxes)):
             bot, left, top, right = boxes[i, ...]
             class_id = int(classes[i])
+            state = 'u'
             if class_id == 1:
                 color = ImageColor.getrgb("red")
+                state = "r"
             elif class_id == 2:
                 color = ImageColor.getrgb("yellow")
+                state = 'y'
             elif class_id == 3:
                 color = ImageColor.getrgb("green")
+                state = 'g'
             elif class_id == 4:
                 color = ImageColor.getrgb("white")
             draw.line([(left, top), (left, bot), (right, bot),
                        (right, top), (left, top)], width=thickness, fill=color)
             draw.text((left, top), "{}".format(scores[i]), fill=color)
+            rospy.loginfo("id: %d, box: (%f, %f, %f, %f), state: %s, score: %f",
+                          i, left, top, right, bot, state, scores[i])
         out_path = self.cwd + '/output/out_'
         image.save(out_path + str(self.idx) + '.png')
         self.idx += 1

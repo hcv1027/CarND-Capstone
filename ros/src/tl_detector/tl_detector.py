@@ -10,6 +10,7 @@ from light_classification.tl_classifier import TLClassifier
 import tf
 import cv2
 import yaml
+import math
 from scipy.spatial import KDTree
 
 STATE_COUNT_THRESHOLD = 3
@@ -106,8 +107,12 @@ class TLDetector(object):
             self.state = state
             # rospy.loginfo("Set state_count = 0")
         elif self.state_count >= STATE_COUNT_THRESHOLD:
+            light_wp = light_wp
+            if (state == TrafficLight.RED) or (self.last_state == TrafficLight.GREEN and state == TrafficLight.YELLOW):
+                light_wp = light_wp
+            else:
+                light_wp = -1
             self.last_state = self.state
-            light_wp = light_wp if state == TrafficLight.RED else -1
             self.last_wp = light_wp
             # rospy.loginfo("Closest red light: %d", light_wp)
             self.upcoming_red_light_pub.publish(Int32(light_wp))
@@ -190,10 +195,24 @@ class TLDetector(object):
                     line_wp_idx = temp_wp_idx
 
         if closest_light is not None:
-            state = self.get_light_state(closest_light)
-            # rospy.loginfo("Closest traffic state: %d", state)
-            return line_wp_idx, state
+            dist = self.distance(
+                self.base_waypoints.waypoints, car_wp_idx, line_wp_idx)
+            # rospy.loginfo("Closest tl dist: %f", dist)
+            if dist <= 150.0:
+                state = self.get_light_state(closest_light)
+                return line_wp_idx, state
         return -1, TrafficLight.UNKNOWN
+
+    # Get the distance from wp1 to wp2, the order of wp1 and wp2 can't change
+    def distance(self, waypoints, wp1, wp2):
+        dist = 0
+        def dl(a, b): return math.sqrt(
+            (a.x-b.x)**2 + (a.y-b.y)**2 + (a.z-b.z)**2)
+        for i in range(wp1, wp2+1):
+            dist += dl(waypoints[wp1].pose.pose.position,
+                       waypoints[i].pose.pose.position)
+            wp1 = i
+        return dist
 
 
 if __name__ == '__main__':
