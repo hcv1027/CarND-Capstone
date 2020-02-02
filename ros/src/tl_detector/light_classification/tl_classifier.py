@@ -21,8 +21,7 @@ class TLClassifier(object):
     def __init__(self):
         # TODO load classifier
         self.cwd = os.path.dirname(os.path.realpath(__file__))
-        SSD_GRAPH_FILE = self.cwd + \
-            '/model/ssd_inception_v2_coco_2017_11_17/frozen_inference_graph.pb'
+        SSD_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph.pb'
         # SSD_GRAPH_FILE = self.cwd + \
         #     '/model/ssd_mobilenet_v1_coco_2017_11_17/frozen_inference_graph.pb'
         rospy.loginfo("Model path is : %s", SSD_GRAPH_FILE)
@@ -69,29 +68,50 @@ class TLClassifier(object):
             scores = np.squeeze(scores)
             classes = np.squeeze(classes)
 
-            confidence_cutoff = 0.8
+            confidence_cutoff = 0.1
             # Filter boxes with a confidence score less than `confidence_cutoff`
             boxes, scores, classes = self.filter_boxes(
                 confidence_cutoff, boxes, scores, classes)
 
             # rospy.loginfo("Shape of classes: {}".format(classes.shape))
+            state = TrafficLight.UNKNOWN
+            state_count = [0, 0, 0, 0]
             for i in range(classes.shape[0]):
-                if classes[i] == 10:
-                    rospy.loginfo("Detect traffic light!")
+                # rospy.loginfo('classes[{}]: {}'.format(i, classes[i]))
+                class_type = int(classes[i]) - 1
+                state_count[class_type] += 1
+                # if class_type == TrafficLight.UNKNOWN:
+                #     rospy.loginfo(
+                #         "TL {} is unknown, score: {}".format(i, scores[i]))
+                # elif class_type == TrafficLight.GREEN:
+                #     rospy.loginfo(
+                #         "TL {} is green, score: {}".format(i, scores[i]))
+                # elif class_type == TrafficLight.YELLOW:
+                #     rospy.loginfo(
+                #         "TL {} is yellow, score: {}".format(i, scores[i]))
+                # elif class_type == TrafficLight.RED:
+                #     rospy.loginfo(
+                #         "TL {} is red, score: {}".format(i, scores[i]))
+            if state_count[TrafficLight.RED] >= 2:
+                state = TrafficLight.RED
+            elif state_count[TrafficLight.YELLOW] >= 2:
+                state = TrafficLight.YELLOW
+            elif state_count[TrafficLight.GREEN] >= 2:
+                state = TrafficLight.GREEN
 
             # The current box coordinates are normalized to a range between 0 and 1.
             # This converts the coordinates actual location on the image.
             # rospy.loginfo("image.shape: {}".format(image.shape))
-            height, width, channels = image.shape
-            box_coords = self.to_image_coords(boxes, height, width)
+            # height, width, channels = image.shape
+            # box_coords = self.to_image_coords(boxes, height, width)
 
             # Each class with be represented by a differently colored box
-            self.draw_boxes(image, box_coords, classes)
+            # self.draw_boxes(image, box_coords, classes, scores)
 
             # plt.figure(figsize=(12, 8))
             # plt.imshow(image)
 
-        return TrafficLight.UNKNOWN
+        return state
 
     def load_graph(self, graph_file):
         """Loads a frozen inference graph"""
@@ -132,17 +152,24 @@ class TLClassifier(object):
 
         return box_coords
 
-    def draw_boxes(self, image, boxes, classes, thickness=4):
+    def draw_boxes(self, image, boxes, classes, scores, thickness=4):
         """Draw bounding boxes on the image"""
         image = Image.fromarray(image)
         draw = ImageDraw.Draw(image)
         for i in range(len(boxes)):
             bot, left, top, right = boxes[i, ...]
             class_id = int(classes[i])
-            # if class_id == 10:
-            color = COLOR_LIST[class_id]
+            if class_id == 1:
+                color = ImageColor.getrgb("red")
+            elif class_id == 2:
+                color = ImageColor.getrgb("yellow")
+            elif class_id == 3:
+                color = ImageColor.getrgb("green")
+            elif class_id == 4:
+                color = ImageColor.getrgb("white")
             draw.line([(left, top), (left, bot), (right, bot),
                        (right, top), (left, top)], width=thickness, fill=color)
+            draw.text((left, top), "{}".format(scores[i]), fill=color)
         out_path = self.cwd + '/output/out_'
         image.save(out_path + str(self.idx) + '.png')
         self.idx += 1

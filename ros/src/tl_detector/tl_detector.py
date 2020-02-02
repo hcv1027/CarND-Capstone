@@ -85,15 +85,15 @@ class TLDetector(object):
         self.has_image = True
         self.camera_image = msg
         light_wp, state = self.process_traffic_lights()
-        # if light_wp >= 0:
-        #     if state == TrafficLight.UNKNOWN:
-        #         rospy.loginfo("TL state: UNKNOWN")
-        #     elif state == TrafficLight.GREEN:
-        #         rospy.loginfo("TL state: GREEN")
-        #     elif state == TrafficLight.YELLOW:
-        #         rospy.loginfo("TL state: YELLOW")
-        #     elif state == TrafficLight.RED:
-        #         rospy.loginfo("TL state: RED")
+        if light_wp >= 0:
+            if state == TrafficLight.UNKNOWN:
+                rospy.loginfo("TL state: UNKNOWN")
+            elif state == TrafficLight.GREEN:
+                rospy.loginfo("TL state: GREEN")
+            elif state == TrafficLight.YELLOW:
+                rospy.loginfo("TL state: YELLOW")
+            elif state == TrafficLight.RED:
+                rospy.loginfo("TL state: RED")
 
         '''
         Publish upcoming red lights at camera frequency.

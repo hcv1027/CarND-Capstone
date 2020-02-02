@@ -85,7 +85,7 @@ class Bridge(object):
         pose.pose.position.z = z
 
         q = tf.transformations.quaternion_from_euler(
-            0., 0., math.pi * yaw/180.)
+            0., 0., math.pi * yaw / 180.)
         pose.pose.orientation = Quaternion(*q)
 
         return pose
@@ -104,7 +104,7 @@ class Bridge(object):
 
     def create_steer(self, val):
         st = SteeringReport()
-        st.steering_wheel_angle_cmd = val * math.pi/180.
+        st.steering_wheel_angle_cmd = val * math.pi / 180.
         st.enabled = True
         st.speed = self.vel
         return st
@@ -112,7 +112,8 @@ class Bridge(object):
     def calc_angular(self, yaw):
         angular_vel = 0.
         if self.yaw is not None:
-            angular_vel = (yaw - self.yaw)/(rospy.get_time() - self.prev_time)
+            angular_vel = (yaw - self.yaw) / \
+                (rospy.get_time() - self.prev_time)
         self.yaw = yaw
         self.prev_time = rospy.get_time()
         return angular_vel
@@ -137,12 +138,12 @@ class Bridge(object):
 
         position = (data['x'], data['y'], data['z'])
         orientation = tf.transformations.quaternion_from_euler(
-            0, 0, math.pi * data['yaw']/180.)
+            0, 0, math.pi * data['yaw'] / 180.)
         self.broadcast_transform("base_link", position, orientation)
 
         self.publishers['current_pose'].publish(pose)
         self.vel = data['velocity'] * 0.44704
-        self.angular = self.calc_angular(data['yaw'] * math.pi/180.)
+        self.angular = self.calc_angular(data['yaw'] * math.pi / 180.)
         self.publishers['current_velocity'].publish(
             self.create_twist(self.vel, self.angular))
 
@@ -192,7 +193,7 @@ class Bridge(object):
         # self.publishers['image'].publish(image_message)
 
         # Fix camera latency problem
-        if self.image_gap >= 3:
+        if self.image_gap >= 0:
             self.image_gap = 0
             imgString = data["image"]
             image = PIL_Image.open(BytesIO(base64.b64decode(imgString)))
@@ -221,7 +222,7 @@ class Bridge(object):
         for waypoint in data.waypoints:
             x = waypoint.pose.pose.position.x
             y = waypoint.pose.pose.position.y
-            z = waypoint.pose.pose.position.z+0.5
+            z = waypoint.pose.pose.position.z + 0.5
             x_values.append(x)
             y_values.append(y)
             z_values.append(z)
