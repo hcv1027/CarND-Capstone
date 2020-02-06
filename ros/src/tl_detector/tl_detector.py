@@ -26,6 +26,7 @@ class TLDetector(object):
         self.curr_pose = None
         self.camera_image = None
         self.lights = []
+        self.test_bag = True
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
@@ -48,7 +49,7 @@ class TLDetector(object):
             '/traffic_waypoint', Int32, queue_size=1)
 
         self.bridge = CvBridge()
-        self.light_classifier = TLClassifier()
+        self.light_classifier = TLClassifier(self.config['is_site'])
         self.listener = tf.TransformListener()
 
         self.state = TrafficLight.UNKNOWN
@@ -85,41 +86,44 @@ class TLDetector(object):
         """
         self.has_image = True
         self.camera_image = msg
-        light_wp, state = self.process_traffic_lights()
-        if light_wp >= 0:
-            if state == TrafficLight.UNKNOWN:
-                rospy.loginfo("TL state: UNKNOWN")
-            elif state == TrafficLight.GREEN:
-                rospy.loginfo("TL state: GREEN")
-            elif state == TrafficLight.YELLOW:
-                rospy.loginfo("TL state: YELLOW")
-            elif state == TrafficLight.RED:
-                rospy.loginfo("TL state: RED")
-
-        '''
-        Publish upcoming red lights at camera frequency.
-        Each predicted state has to occur `STATE_COUNT_THRESHOLD` number
-        of times till we start using it. Otherwise the previous stable state is
-        used.
-        '''
-        if self.state != state:
-            self.state_count = 0
-            self.state = state
-            # rospy.loginfo("Set state_count = 0")
-        elif self.state_count >= STATE_COUNT_THRESHOLD:
-            light_wp = light_wp
-            if (state == TrafficLight.RED) or (self.last_state == TrafficLight.GREEN and state == TrafficLight.YELLOW):
-                light_wp = light_wp
-            else:
-                light_wp = -1
-            self.last_state = self.state
-            self.last_wp = light_wp
-            # rospy.loginfo("Closest red light: %d", light_wp)
-            self.upcoming_red_light_pub.publish(Int32(light_wp))
+        if self.test_bag:
+            self.get_light_state(0)
         else:
-            self.upcoming_red_light_pub.publish(Int32(self.last_wp))
-        self.state_count += 1
-        # rospy.loginfo("state_count: %d", self.state_count)
+            light_wp, state = self.process_traffic_lights()
+            if light_wp >= 0:
+                if state == TrafficLight.UNKNOWN:
+                    rospy.loginfo("TL state: UNKNOWN")
+                elif state == TrafficLight.GREEN:
+                    rospy.loginfo("TL state: GREEN")
+                elif state == TrafficLight.YELLOW:
+                    rospy.loginfo("TL state: YELLOW")
+                elif state == TrafficLight.RED:
+                    rospy.loginfo("TL state: RED")
+
+            '''
+            Publish upcoming red lights at camera frequency.
+            Each predicted state has to occur `STATE_COUNT_THRESHOLD` number
+            of times till we start using it. Otherwise the previous stable state is
+            used.
+            '''
+            if self.state != state:
+                self.state_count = 0
+                self.state = state
+                # rospy.loginfo("Set state_count = 0")
+            elif self.state_count >= STATE_COUNT_THRESHOLD:
+                light_wp = light_wp
+                if (state == TrafficLight.RED) or (self.last_state == TrafficLight.GREEN and state == TrafficLight.YELLOW):
+                    light_wp = light_wp
+                else:
+                    light_wp = -1
+                self.last_state = self.state
+                self.last_wp = light_wp
+                # rospy.loginfo("Closest red light: %d", light_wp)
+                self.upcoming_red_light_pub.publish(Int32(light_wp))
+            else:
+                self.upcoming_red_light_pub.publish(Int32(self.last_wp))
+            self.state_count += 1
+            # rospy.loginfo("state_count: %d", self.state_count)
 
     def get_closest_waypoint(self, x, y):
         """Identifies the closest path waypoint to the given position

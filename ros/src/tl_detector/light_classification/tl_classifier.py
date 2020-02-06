@@ -19,15 +19,16 @@ COLOR_LIST = sorted([c for c in cmap.keys()])
 
 
 class TLClassifier(object):
-    def __init__(self):
+    def __init__(self, is_site):
         # TODO load classifier
-        self.output_img = False
+        self.is_site = is_site
+        self.output_img = True
         rospy.Subscriber('/show_tl_classifier', Bool, self.output_image_cb)
 
         self.cwd = os.path.dirname(os.path.realpath(__file__))
-        SSD_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph.pb'
-        # SSD_GRAPH_FILE = self.cwd + \
-        #     '/model/ssd_mobilenet_v1_coco_2017_11_17/frozen_inference_graph.pb'
+        SITE_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph_site.pb'
+        SIM_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph_sim.pb'
+        SSD_GRAPH_FILE = SITE_GRAPH_FILE if is_site else SIM_GRAPH_FILE
         rospy.loginfo("Model path is : %s", SSD_GRAPH_FILE)
         self.graph = self.load_graph(SSD_GRAPH_FILE)
         # The input placeholder for the image.
@@ -75,7 +76,7 @@ class TLClassifier(object):
             scores = np.squeeze(scores)
             classes = np.squeeze(classes)
 
-            confidence_cutoff = 0.4
+            confidence_cutoff = 0.1
             # Filter boxes with a confidence score less than `confidence_cutoff`
             boxes, scores, classes = self.filter_boxes(
                 confidence_cutoff, boxes, scores, classes)
@@ -87,6 +88,24 @@ class TLClassifier(object):
             for i in range(classes.shape[0]):
                 # rospy.loginfo('classes[{}]: {}'.format(i, classes[i]))
                 class_type = int(classes[i]) - 1
+                if self.is_site:
+                    if class_type == 1:
+                        class_type = TrafficLight.UNKNOWN
+                    elif class_type == 2:
+                        class_type = TrafficLight.GREEN
+                    elif class_type == 3:
+                        class_type = TrafficLight.YELLOW
+                    elif class_type == 4:
+                        class_type = TrafficLight.RED
+                else:
+                    if class_type == 1:
+                        class_type = TrafficLight.RED
+                    elif class_type == 2:
+                        class_type = TrafficLight.YELLOW
+                    elif class_type == 3:
+                        class_type = TrafficLight.GREEN
+                    elif class_type == 4:
+                        class_type = TrafficLight.UNKNOWN
                 state_count[class_type] += 1
                 # if class_type == TrafficLight.UNKNOWN:
                 #     rospy.loginfo(
