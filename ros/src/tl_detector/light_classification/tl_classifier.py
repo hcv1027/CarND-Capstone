@@ -26,11 +26,18 @@ class TLClassifier(object):
         rospy.Subscriber('/show_tl_classifier', Bool, self.output_image_cb)
 
         self.cwd = os.path.dirname(os.path.realpath(__file__))
-        SITE_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph_site.pb'
-        SIM_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph_sim.pb'
-        SSD_GRAPH_FILE = SITE_GRAPH_FILE if is_site else SIM_GRAPH_FILE
-        rospy.loginfo("Model path is : %s", SSD_GRAPH_FILE)
-        self.graph = self.load_graph(SSD_GRAPH_FILE)
+        SITE_SSD_INCEPTION = self.cwd + 'model/ssd_inception_v2_coco_real/'
+        SIM_SSD_INCEPTION = self.cwd + 'model/ssd_inception_v2_coco_sim/'
+        SITE_SSD_MOBILENET = self.cwd + 'model/ssd_mobilenet_v1_coco_real/'
+        SIM_SSD_MOBILENET = self.cwd + 'model/ssd_mobilenet_v1_coco_sim/'
+        GRAPH_FILE = 'frozen_inference_graph_site.pb'
+        LOAD_FILE = SITE_SSD_INCEPTION + GRAPH_FILE
+
+        # SITE_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph_site.pb'
+        # SIM_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph_sim.pb'
+        # SSD_GRAPH_FILE = SITE_GRAPH_FILE if is_site else SIM_GRAPH_FILE
+        rospy.loginfo("Model path is : %s", LOAD_FILE)
+        self.graph = self.load_graph(LOAD_FILE)
         # The input placeholder for the image.
         # `get_tensor_by_name` returns the Tensor with the associated name in the Graph.
         self.image_tensor = self.graph.get_tensor_by_name(
@@ -87,26 +94,36 @@ class TLClassifier(object):
             # rospy.loginfo("Box count: {}".format(classes.shape[0]))
             for i in range(classes.shape[0]):
                 # rospy.loginfo('classes[{}]: {}'.format(i, classes[i]))
-                class_type = int(classes[i]) - 1
-                if self.is_site:
-                    if class_type == 1:
-                        class_type = TrafficLight.UNKNOWN
-                    elif class_type == 2:
-                        class_type = TrafficLight.GREEN
-                    elif class_type == 3:
-                        class_type = TrafficLight.YELLOW
-                    elif class_type == 4:
-                        class_type = TrafficLight.RED
-                else:
-                    if class_type == 1:
-                        class_type = TrafficLight.RED
-                    elif class_type == 2:
-                        class_type = TrafficLight.YELLOW
-                    elif class_type == 3:
-                        class_type = TrafficLight.GREEN
-                    elif class_type == 4:
-                        class_type = TrafficLight.UNKNOWN
-                state_count[class_type] += 1
+                # class_type = int(classes[i]) - 1
+                class_type = int(classes[i])
+                if class_type == 1:
+                    class_type = TrafficLight.GREEN
+                elif class_type == 2:
+                    class_type = TrafficLight.RED
+                elif class_type == 3:
+                    class_type = TrafficLight.YELLOW
+                elif class_type == 4:
+                    class_type = TrafficLight.UNKNOWN
+
+                # if self.is_site:
+                #     if class_type == 1:
+                #         class_type = TrafficLight.UNKNOWN
+                #     elif class_type == 2:
+                #         class_type = TrafficLight.GREEN
+                #     elif class_type == 3:
+                #         class_type = TrafficLight.YELLOW
+                #     elif class_type == 4:
+                #         class_type = TrafficLight.RED
+                # else:
+                #     if class_type == 1:
+                #         class_type = TrafficLight.RED
+                #     elif class_type == 2:
+                #         class_type = TrafficLight.YELLOW
+                #     elif class_type == 3:
+                #         class_type = TrafficLight.GREEN
+                #     elif class_type == 4:
+                #         class_type = TrafficLight.UNKNOWN
+                state_count[class_type - 1] += 1
                 # if class_type == TrafficLight.UNKNOWN:
                 #     rospy.loginfo(
                 #         "TL {} is unknown, score: {}".format(i, scores[i]))
