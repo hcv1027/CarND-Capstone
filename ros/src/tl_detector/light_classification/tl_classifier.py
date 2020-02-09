@@ -26,18 +26,24 @@ class TLClassifier(object):
         rospy.Subscriber('/show_tl_classifier', Bool, self.output_image_cb)
 
         self.cwd = os.path.dirname(os.path.realpath(__file__))
-        SITE_SSD_INCEPTION = self.cwd + 'model/ssd_inception_v2_coco_real/'
-        SIM_SSD_INCEPTION = self.cwd + 'model/ssd_inception_v2_coco_sim/'
-        SITE_SSD_MOBILENET = self.cwd + 'model/ssd_mobilenet_v1_coco_real/'
-        SIM_SSD_MOBILENET = self.cwd + 'model/ssd_mobilenet_v1_coco_sim/'
-        GRAPH_FILE = 'frozen_inference_graph_site.pb'
-        LOAD_FILE = SITE_SSD_INCEPTION + GRAPH_FILE
+        SITE_SSD_INCEPTION = self.cwd + '/model/ssd_inception_v2_coco_real/'
+        # SIM_SSD_INCEPTION = self.cwd + '/model/ssd_inception_v2_coco_sim/'
+        # SITE_SSD_MOBILENET = self.cwd + '/model/ssd_mobilenet_v1_coco_real/'
+        SIM_SSD_MOBILENET = self.cwd + '/model/ssd_mobilenet_v1_coco_sim/'
+        GRAPH_FILE = 'frozen_inference_graph.pb'
+        MODEL_PATH = SITE_SSD_INCEPTION if is_site else SIM_SSD_MOBILENET
+        LOAD_FILE = MODEL_PATH + GRAPH_FILE
+        # LOAD_FILE = SIM_SSD_INCEPTION + GRAPH_FILE
+        # LOAD_FILE = SITE_SSD_MOBILENET + GRAPH_FILE
+        # LOAD_FILE = SIM_SSD_MOBILENET + GRAPH_FILE
 
         # SITE_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph_site.pb'
         # SIM_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph_sim.pb'
         # SSD_GRAPH_FILE = SITE_GRAPH_FILE if is_site else SIM_GRAPH_FILE
         rospy.loginfo("Model path is : %s", LOAD_FILE)
         self.graph = self.load_graph(LOAD_FILE)
+        # rospy.loginfo("Model path is : %s", SSD_GRAPH_FILE)
+        # self.graph = self.load_graph(SSD_GRAPH_FILE)
         # The input placeholder for the image.
         # `get_tensor_by_name` returns the Tensor with the associated name in the Graph.
         self.image_tensor = self.graph.get_tensor_by_name(
@@ -54,6 +60,7 @@ class TLClassifier(object):
             'detection_classes:0')
         rospy.loginfo("Load graph complete")
         self.idx = 0
+        # self.test_model()
 
     def output_image_cb(self, msg):
         self.output_img = msg.data
@@ -70,7 +77,7 @@ class TLClassifier(object):
         """
         # TODO implement light color prediction
         # Convert bgr to rgb
-        image = np.dstack((image[:, :, 2], image[:, :, 1], image[:, :, 0]))
+        # image = np.dstack((image[:, :, 2], image[:, :, 1], image[:, :, 0]))
         # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
         image_expanded = np.expand_dims(image, axis=0)
         with tf.Session(graph=self.graph) as sess:
@@ -90,52 +97,21 @@ class TLClassifier(object):
 
             # rospy.loginfo("Shape of classes: {}".format(classes.shape))
             state = TrafficLight.UNKNOWN
-            state_count = [0, 0, 0, 0]
+            state_count = [0, 0, 0, 0, 0]
             # rospy.loginfo("Box count: {}".format(classes.shape[0]))
             for i in range(classes.shape[0]):
-                # rospy.loginfo('classes[{}]: {}'.format(i, classes[i]))
-                # class_type = int(classes[i]) - 1
+                # My sim version, red=1, yellow=2, green=3, unknown=4
                 class_type = int(classes[i])
                 if class_type == 1:
-                    class_type = TrafficLight.GREEN
-                elif class_type == 2:
                     class_type = TrafficLight.RED
-                elif class_type == 3:
+                elif class_type == 2:
                     class_type = TrafficLight.YELLOW
+                elif class_type == 3:
+                    class_type = TrafficLight.GREEN
                 elif class_type == 4:
                     class_type = TrafficLight.UNKNOWN
+                state_count[class_type] += 1
 
-                # if self.is_site:
-                #     if class_type == 1:
-                #         class_type = TrafficLight.UNKNOWN
-                #     elif class_type == 2:
-                #         class_type = TrafficLight.GREEN
-                #     elif class_type == 3:
-                #         class_type = TrafficLight.YELLOW
-                #     elif class_type == 4:
-                #         class_type = TrafficLight.RED
-                # else:
-                #     if class_type == 1:
-                #         class_type = TrafficLight.RED
-                #     elif class_type == 2:
-                #         class_type = TrafficLight.YELLOW
-                #     elif class_type == 3:
-                #         class_type = TrafficLight.GREEN
-                #     elif class_type == 4:
-                #         class_type = TrafficLight.UNKNOWN
-                state_count[class_type - 1] += 1
-                # if class_type == TrafficLight.UNKNOWN:
-                #     rospy.loginfo(
-                #         "TL {} is unknown, score: {}".format(i, scores[i]))
-                # elif class_type == TrafficLight.GREEN:
-                #     rospy.loginfo(
-                #         "TL {} is green, score: {}".format(i, scores[i]))
-                # elif class_type == TrafficLight.YELLOW:
-                #     rospy.loginfo(
-                #         "TL {} is yellow, score: {}".format(i, scores[i]))
-                # elif class_type == TrafficLight.RED:
-                #     rospy.loginfo(
-                #         "TL {} is red, score: {}".format(i, scores[i]))
             if state_count[TrafficLight.RED] >= 2:
                 state = TrafficLight.RED
             elif state_count[TrafficLight.YELLOW] >= 2:
@@ -218,5 +194,23 @@ class TLClassifier(object):
             rospy.loginfo("id: %d, box: (%f, %f, %f, %f), state: %s, score: %f",
                           i, left, top, right, bot, state, scores[i])
         out_path = self.cwd + '/output/out_'
-        image.save(out_path + str(self.idx) + '.png')
+        image.save(out_path + str(self.idx) + '.jpg')
         self.idx += 1
+
+    def test_model(self):
+        # for i in range(672, 738):
+        #     im = np.asarray(Image.open(
+        #         self.cwd + "/test/v1/left{:04d}".format(i) + ".jpg"))
+        #     self.get_classification(im)
+        # for i in range(890, 927):
+        #     im = np.asarray(Image.open(
+        #         self.cwd + "/test/v1/left{:04d}".format(i) + ".jpg"))
+        #     self.get_classification(im)
+        # for i in range(1075, 1127):
+        #     im = np.asarray(Image.open(
+        #         self.cwd + "/test/v1/left{:04d}".format(i) + ".jpg"))
+        #     self.get_classification(im)
+        for i in range(231, 526):
+            im = np.asarray(Image.open(
+                self.cwd + "/test/v2/bag{:04d}".format(i) + ".png"))
+            self.get_classification(im)

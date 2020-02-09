@@ -26,7 +26,7 @@ class TLDetector(object):
         self.curr_pose = None
         self.camera_image = None
         self.lights = []
-        self.test_bag = True
+        self.test_bag = False
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
@@ -160,7 +160,7 @@ class TLDetector(object):
             self.prev_light_loc = None
             return False
 
-        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
 
         # (rows, cols, channels) = cv_image.shape
         # rospy.loginfo("Img, size: %d, %d, %d,", rows, cols, channels)
