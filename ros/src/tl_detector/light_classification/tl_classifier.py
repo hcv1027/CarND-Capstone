@@ -22,7 +22,7 @@ class TLClassifier(object):
     def __init__(self, is_site):
         # TODO load classifier
         self.is_site = is_site
-        self.output_img = True
+        self.output_img = False
         rospy.Subscriber('/show_tl_classifier', Bool, self.output_image_cb)
 
         self.cwd = os.path.dirname(os.path.realpath(__file__))
@@ -33,17 +33,9 @@ class TLClassifier(object):
         GRAPH_FILE = 'frozen_inference_graph.pb'
         MODEL_PATH = SITE_SSD_INCEPTION if is_site else SIM_SSD_MOBILENET
         LOAD_FILE = MODEL_PATH + GRAPH_FILE
-        # LOAD_FILE = SIM_SSD_INCEPTION + GRAPH_FILE
-        # LOAD_FILE = SITE_SSD_MOBILENET + GRAPH_FILE
-        # LOAD_FILE = SIM_SSD_MOBILENET + GRAPH_FILE
 
-        # SITE_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph_site.pb'
-        # SIM_GRAPH_FILE = self.cwd + '/model/frozen_inference_graph_sim.pb'
-        # SSD_GRAPH_FILE = SITE_GRAPH_FILE if is_site else SIM_GRAPH_FILE
         rospy.loginfo("Model path is : %s", LOAD_FILE)
         self.graph = self.load_graph(LOAD_FILE)
-        # rospy.loginfo("Model path is : %s", SSD_GRAPH_FILE)
-        # self.graph = self.load_graph(SSD_GRAPH_FILE)
         # The input placeholder for the image.
         # `get_tensor_by_name` returns the Tensor with the associated name in the Graph.
         self.image_tensor = self.graph.get_tensor_by_name(
@@ -90,7 +82,7 @@ class TLClassifier(object):
             scores = np.squeeze(scores)
             classes = np.squeeze(classes)
 
-            confidence_cutoff = 0.1
+            confidence_cutoff = 0.6
             # Filter boxes with a confidence score less than `confidence_cutoff`
             boxes, scores, classes = self.filter_boxes(
                 confidence_cutoff, boxes, scores, classes)

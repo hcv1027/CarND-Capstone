@@ -13,7 +13,7 @@ import yaml
 import math
 from scipy.spatial import KDTree
 
-STATE_COUNT_THRESHOLD = 3
+STATE_COUNT_THRESHOLD = 1
 
 
 class TLDetector(object):
@@ -111,11 +111,8 @@ class TLDetector(object):
                 self.state = state
                 # rospy.loginfo("Set state_count = 0")
             elif self.state_count >= STATE_COUNT_THRESHOLD:
-                light_wp = light_wp
-                if (state == TrafficLight.RED) or (self.last_state == TrafficLight.GREEN and state == TrafficLight.YELLOW):
-                    light_wp = light_wp
-                else:
-                    light_wp = -1
+                light_wp = light_wp if (
+                    state == TrafficLight.RED or state == TrafficLight.YELLOW) else -1
                 self.last_state = self.state
                 self.last_wp = light_wp
                 # rospy.loginfo("Closest red light: %d", light_wp)
@@ -155,17 +152,11 @@ class TLDetector(object):
         """
         # For testing, just return the traffic light state
         # return light.state
-
         if self.has_image is False:
             self.prev_light_loc = None
             return False
 
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
-
-        # (rows, cols, channels) = cv_image.shape
-        # rospy.loginfo("Img, size: %d, %d, %d,", rows, cols, channels)
-        # rospy.loginfo("Img, type: {}".format(type(cv_image)))
-
         # Get classification
         return self.light_classifier.get_classification(cv_image)
 
