@@ -84,21 +84,28 @@ class TLDetector(object):
             msg (Image): image from car-mounted camera
 
         """
+        curr_time = rospy.Time.now()
+        duration = curr_time.to_sec() - msg.header.stamp.to_sec()
+        
+        if duration > 0.2:
+            # rospy.loginfo("Image message too old, skip")
+            return
+        # rospy.loginfo("image_cb, duration: {}".format(duration))
         self.has_image = True
         self.camera_image = msg
         if self.test_bag:
             self.get_light_state(0)
         else:
-            light_wp, state = self.process_traffic_lights()
+            light_wp, state, confidence = self.process_traffic_lights()
             if light_wp >= 0:
                 if state == TrafficLight.UNKNOWN:
                     rospy.loginfo("TL state: UNKNOWN")
                 elif state == TrafficLight.GREEN:
-                    rospy.loginfo("TL state: GREEN")
+                    rospy.loginfo("TL state: GREEN, %f", confidence)
                 elif state == TrafficLight.YELLOW:
-                    rospy.loginfo("TL state: YELLOW")
+                    rospy.loginfo("TL state: YELLOW, %f", confidence)
                 elif state == TrafficLight.RED:
-                    rospy.loginfo("TL state: RED")
+                    rospy.loginfo("TL state: RED, %f", confidence)
 
             '''
             Publish upcoming red lights at camera frequency.
@@ -109,6 +116,14 @@ class TLDetector(object):
             if self.state != state:
                 self.state_count = 0
                 self.state = state
+                if confidence > 0.7:
+                    light_wp = light_wp if (
+                        state == TrafficLight.RED or state == TrafficLight.YELLOW) else -1
+                    self.last_state = self.state
+                    self.last_wp = light_wp
+                    rospy.loginfo("High confidence: %f", confidence)
+                    self.upcoming_red_light_pub.publish(Int32(light_wp))
+                    
                 # rospy.loginfo("Set state_count = 0")
             elif self.state_count >= STATE_COUNT_THRESHOLD:
                 light_wp = light_wp if (
@@ -194,9 +209,9 @@ class TLDetector(object):
                 self.base_waypoints.waypoints, car_wp_idx, line_wp_idx)
             # rospy.loginfo("Closest tl dist: %f", dist)
             if dist <= 150.0:
-                state = self.get_light_state(closest_light)
-                return line_wp_idx, state
-        return -1, TrafficLight.UNKNOWN
+                state, confidence = self.get_light_state(closest_light)
+                return line_wp_idx, state, confidence
+        return -1, TrafficLight.UNKNOWN, 1.0
 
     # Get the distance from wp1 to wp2, the order of wp1 and wp2 can't change
     def distance(self, waypoints, wp1, wp2):

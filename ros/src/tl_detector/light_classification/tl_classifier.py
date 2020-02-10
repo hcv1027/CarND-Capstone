@@ -90,6 +90,7 @@ class TLClassifier(object):
             # rospy.loginfo("Shape of classes: {}".format(classes.shape))
             state = TrafficLight.UNKNOWN
             state_count = [0, 0, 0, 0, 0]
+            state_max_score = [0, 0, 0, 0, 0]
             # rospy.loginfo("Box count: {}".format(classes.shape[0]))
             for i in range(classes.shape[0]):
                 # My sim version, red=1, yellow=2, green=3, unknown=4
@@ -103,6 +104,8 @@ class TLClassifier(object):
                 elif class_type == 4:
                     class_type = TrafficLight.UNKNOWN
                 state_count[class_type] += 1
+                if state_max_score[class_type] < scores[i]:
+                    state_max_score[class_type] = scores[i]
 
             if state_count[TrafficLight.RED] >= 2:
                 state = TrafficLight.RED
@@ -120,7 +123,7 @@ class TLClassifier(object):
                 # Each class with be represented by a differently colored box
                 self.draw_boxes(image, box_coords, classes, scores)
 
-        return state
+        return state, state_max_score[state]
 
     def load_graph(self, graph_file):
         """Loads a frozen inference graph"""

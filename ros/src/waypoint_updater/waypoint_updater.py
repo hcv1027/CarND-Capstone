@@ -8,6 +8,7 @@ from scipy.spatial import KDTree
 from scipy.interpolate import splev, splrep, CubicSpline
 import numpy as np
 import tf
+import threading
 import math
 
 '''
@@ -72,15 +73,17 @@ class WaypointUpdater(object):
         self.prev_stopline_wp_idx = -1
         self.stop_buffer = 10
         self.have_stop_plan = False
-        # self.decel_limit = rospy.get_param('/dbw_node/decel_limit', -5)
+        self.decel_limit = rospy.get_param('/dbw_node/decel_limit', -5)
         self.accel_limit = rospy.get_param('/dbw_node/accel_limit', 1.)
-        self.decel_limit = -1.0
-        self.accel_limit = 9.0
+        # self.decel_limit = -1.0
+        # self.accel_limit = 9.0
         self.max_vel = float(rospy.get_param(
             '/waypoint_loader/velocity', 40.0)) * 1000.0 / 3600.0
         self.hz = 30
         self.delta_time = 1 / self.hz
         self.prev_final_waypoints = []
+        self.jmt_duration_dict = None
+        self.generate_jmt_duration_dict()
 
         # start_x = [0.0, 11.1111, 0.0]
         # end_x = [29.0, 0.0, 0.0]
@@ -89,6 +92,21 @@ class WaypointUpdater(object):
         #               jmt[0], jmt[1], jmt[2], jmt[3], jmt[4], jmt[5])
 
         self.loop()
+
+    def generate_jmt_duration_dict(self):
+        max_duration = 40.0
+        self.jmt_duration_dict = {}
+        for duration in np.arange(0.2, max_duration, 0.1):
+            # rospy.loginfo("duration: {}".format(duration))
+            t1 = duration
+            t2 = math.pow(t1, 2)
+            t3 = math.pow(t1, 3)
+            t4 = math.pow(t1, 4)
+            t5 = math.pow(t1, 5)
+            a = np.array([[t3, t4, t5], [3 * t2, 4 * t3, 5 * t4],
+                        [6 * t1, 12 * t2, 20 * t3]])
+            a_inv = np.linalg.inv(a)
+            self.jmt_duration_dict[str(duration)] = {'t1': t1, 't2': t2, 't3': t3, 't4': t4, 't5': t5, 'a': a, 'a_inv': a_inv}
 
     def loop(self):
         rate = rospy.Rate(self.hz)
@@ -132,6 +150,7 @@ class WaypointUpdater(object):
         if self.stopline_wp_idx >= 0:
             buffer_dist = self.distance(self.base_waypoints.waypoints,
                                         closest_wp_idx, self.stopline_wp_idx - self.stop_buffer)
+            rospy.loginfo("buffer_dist: %f", buffer_dist)
             if self.curr_twist[-1].twist.linear.x < 0.1:
                 # rospy.loginfo("Very slow, just stop")
                 waypoints = self.base_waypoints.waypoints[closest_wp_idx:closest_wp_idx+5]
@@ -141,17 +160,40 @@ class WaypointUpdater(object):
                 final_lane.header = self.curr_pose.header
                 final_lane.waypoints = waypoints
                 self.prev_final_waypoints = []
-            elif buffer_dist > 35.0:
+            elif buffer_dist > 50.0:
                 # rospy.loginfo("Buffer is enough, ignore it")
                 final_lane = Lane()
                 final_lane.header = self.curr_pose.header
                 final_lane.waypoints = self.base_waypoints.waypoints[
                     closest_wp_idx:closest_wp_idx+LOOKAHEAD_WPS]
                 self.prev_final_waypoints = []
-            else:
-                # Decelerate to stop before stop_line_wp
+            elif buffer_dist > 35.0 and buffer_dist <= 50.0:
+                # rospy.loginfo("buffer_dist: %f", buffer_dist)
                 final_lane = self.generate_jmt_waypoints(
                     closest_wp_idx, self.stopline_wp_idx - self.stop_buffer, 0.0)
+                # for idx in range(self.stop_buffer, 2, -1):
+                #     time1 = rospy.Time.now()
+                #     final_lane = self.generate_jmt_waypoints(
+                #         closest_wp_idx, self.stopline_wp_idx - stop_buffer, 0.0)
+                #     time2 = rospy.Time.now()
+                #     duration = time2.to_sec() - time1.to_sec()
+                #     rospy.loginfo("idx: %d, jmt time: %f", idx, duration)
+                #     if len(final_lane.waypoints) > 0:
+                #         break
+                if len(final_lane.waypoints) == 0:
+                    final_lane = Lane()
+                    final_lane.header = self.curr_pose.header
+                    final_lane.waypoints = self.base_waypoints.waypoints[
+                        closest_wp_idx:closest_wp_idx+LOOKAHEAD_WPS]
+                    self.prev_final_waypoints = []
+            else:
+                # Decelerate to stop before stop_line_wp
+                # time1 = rospy.Time.now()
+                final_lane = self.generate_jmt_waypoints(
+                    closest_wp_idx, self.stopline_wp_idx - self.stop_buffer, 0.0)
+                # time2 = rospy.Time.now()
+                # duration = time2.to_sec() - time1.to_sec()
+                # rospy.loginfo("jmt took time: %f", duration)
                 if len(final_lane.waypoints) == 0:
                     # rospy.logwarn(
                     #     "Fail to generate jmt plan, just stop directlly, vel: %f, curr: %d, stop: %d",
@@ -179,8 +221,13 @@ class WaypointUpdater(object):
                 end_wp_idx = len(self.base_waypoints.waypoints) - 1
             end_vel = self.base_waypoints.waypoints[end_wp_idx].twist.twist.linear.x
             if self.curr_twist[-1].twist.linear.x < end_vel - 2.0:
+                # end_vel = self.curr_twist[-1].twist.linear.x + 1.0
+                # time1 = rospy.Time.now()
                 final_lane = self.generate_jmt_waypoints(
                     closest_wp_idx, end_wp_idx, end_vel)
+                # time2 = rospy.Time.now()
+                # duration = time2.to_sec() - time1.to_sec()
+                # rospy.loginfo("jmt took time: %f", duration)
                 self.prev_final_waypoints = final_lane.waypoints
             else:
                 final_lane = self.generate_lane(closest_wp_idx)
@@ -255,6 +302,7 @@ class WaypointUpdater(object):
 
         dist = self.distance(self.base_waypoints.waypoints,
                              closest_wp_idx, end_wp_idx)
+        # dist = 200
         waypoints = []
         # if self.curr_twist[-1].twist.linear.x < end_vel and len(self.prev_final_waypoints) > 0:
         #     waypoints = self.prev_final_waypoints[prev_closest_idx:]
@@ -290,18 +338,23 @@ class WaypointUpdater(object):
         # jmt_candidate = []
         jmt_params = None
         max_duration = 40.0
-        jmt_duration = 20.0
-        for duration in np.arange(max_duration, 0.2, -0.1):
+        jmt_duration = max_duration
+        # time1 = rospy.Time.now()
+        for duration in np.arange(0.2, max_duration, 0.1):
+            # rospy.loginfo("duration: {}".format(duration))
             jmt = self.get_jmt_params(start, end, duration)
             if self.check_jmt(jmt, duration):
                 jmt_duration = duration
                 jmt_params = jmt
                 break
                 # jmt_candidate.append()
+        # time2 = rospy.Time.now()
+        # rospy.loginfo("Find jmt parameter: %f", time2.to_sec() - time1.to_sec())
         if jmt_params is not None:
             # rospy.loginfo("jmt: %f, %f, %f, %f, %f, %f",
             #               jmt_params[0], jmt_params[1], jmt_params[2], jmt_params[3], jmt_params[4], jmt_params[5])
             vel_params = derivative(jmt_params)
+            # print("vel_params: {}".format(vel_params))
             sample_xy = []
             for i in range(closest_wp_idx, end_wp_idx):
                 sample_xy.append([self.base_waypoints.waypoints[i].pose.pose.position.x,
@@ -320,6 +373,8 @@ class WaypointUpdater(object):
                 rospy.logerr("CubicSpline fail:")
                 for x in sample_xy[:, 0]:
                     print("x: %f", x)
+            # time3 = rospy.Time.now()
+            # rospy.loginfo("Generate cs: %f", time3.to_sec() - time2.to_sec())
 
             # sample_x = sample_xy[:, 0].tolist()
             # sample_y = sample_xy[:, 1].tolist()
@@ -357,6 +412,8 @@ class WaypointUpdater(object):
                         break
             new_x = np.array(new_x)
             new_y = cs(new_x)
+            # time4 = rospy.Time.now()
+            # rospy.loginfo("Generate traj: %f", time4.to_sec() - time3.to_sec())
             # Skip the angular velocity and yaw, because waypoint_follower doesn't use it.
             # It computes angular velocity accroding to the curvature and linear velocity.
             for i in range(len(new_vel)):
@@ -403,14 +460,30 @@ class WaypointUpdater(object):
         return lane
 
     def get_jmt_params(self, start, end, duration):
-        t1 = duration
-        t2 = math.pow(t1, 2)
-        t3 = math.pow(t1, 3)
-        t4 = math.pow(t1, 4)
-        t5 = math.pow(t1, 5)
-        a = np.array([[t3, t4, t5], [3 * t2, 4 * t3, 5 * t4],
-                      [6 * t1, 12 * t2, 20 * t3]])
-        a_inv = np.linalg.inv(a)
+        # if self.jmt_duration_dict is not None:
+        # time1 = rospy.Time.now()
+        jmt_duration_dict = self.jmt_duration_dict[str(duration)]
+        t1 = jmt_duration_dict['t1']
+        t2 = jmt_duration_dict['t2']
+        t3 = jmt_duration_dict['t3']
+        t4 = jmt_duration_dict['t4']
+        t5 = jmt_duration_dict['t5']
+        a = jmt_duration_dict['a']
+        a_inv = jmt_duration_dict['a_inv']
+        # {'t1': t1, 't2': t2, 't3': t3, 't4': t4, 't5': t5, 'a': a, 'a_inv': a_inv}
+        # else:
+        # time2 = rospy.Time.now()
+        # t1 = duration
+        # t2 = math.pow(t1, 2)
+        # t3 = math.pow(t1, 3)
+        # t4 = math.pow(t1, 4)
+        # t5 = math.pow(t1, 5)
+        # a = np.array([[t3, t4, t5], [3 * t2, 4 * t3, 5 * t4],
+        #             [6 * t1, 12 * t2, 20 * t3]])
+        # a_inv = np.linalg.inv(a)
+        # time3 = rospy.Time.now()
+        # rospy.loginfo("%f vs %s", time3.to_sec() - time2.to_sec(), time2.to_sec() - time1.to_sec())
+
 
         b = np.array([0.0, 0.0, 0.0])
         b[0] = end[0] - (start[0] + start[1] * t1 + .5 * start[2] * t1 * t1)
@@ -424,7 +497,6 @@ class WaypointUpdater(object):
         vel_params = derivative(jmt_params)
         acc_params = derivative(vel_params)
         jerk_params = derivative(acc_params)
-        MAX_VEL = self.max_vel + 5.0
         # rospy.loginfo("check_jmt duration: %f", duration)
         result = True
         # jmt_log = ""
@@ -435,8 +507,10 @@ class WaypointUpdater(object):
             jerk = abs(poly_eval(t, jerk_params))
             # jmt_log += "t: {:f}, dist: {:f}, vel: {:f}, acc: {:f}, jerk: {:f}\n".format(
             #     t, dist, vel, acc, jerk)
-            if vel < 0.0 or acc < 0.1 or acc > self.accel_limit or jerk > 9.9:
-                result = False
+            if vel < 0.0 or vel > (self.max_vel + 0.2) or acc > self.accel_limit or jerk > 9.9:
+                # result = False
+                # rospy.loginfo("vel: %f, acc: %f, jerk: %f", vel, acc, jerk)
+                return False
         if result:
             # rospy.loginfo("check_jmt duration: %f pass\n%s", duration, jmt_log)
             rospy.loginfo("check_jmt duration: %f pass", duration)
@@ -505,15 +579,6 @@ class WaypointUpdater(object):
             # rospy.loginfo("Stop before: %d", self.stopline_wp_idx)
             lane.waypoints = self.decelerate_waypoints(
                 waypoints, closest_wp_idx)
-
-        # end_wp_idx = closest_wp_idx + LOOKAHEAD_WPS
-        # waypoints = self.base_waypoints.waypoints[closest_wp_idx: end_wp_idx]
-        # if self.stopline_wp_idx == -1 or self.stopline_wp_idx >= end_wp_idx:
-        #     lane.waypoints = waypoints
-        # else:
-        #     # rospy.loginfo("Stop before: %d", self.stopline_wp_idx)
-        #     lane.waypoints = self.decelerate_waypoints(
-        #         waypoints, closest_wp_idx)
         return lane
 
     def decelerate_waypoints(self, waypoints, closest_wp_idx):
