@@ -30,7 +30,7 @@ class Controller(object):
         # Initialize pid-controller
         kp = 0.3
         ki = 0.1
-        kd = 0.0
+        kd = 0.001
         self.throttle_controller = PID(kp, ki, kd, mn=-1.0, mx=1.0)
 
         # Initialize low pass filter
