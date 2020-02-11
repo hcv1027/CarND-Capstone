@@ -131,6 +131,7 @@ class DBWNode(object):
 
     def twist_cmd_cb(self, msg):
         self.target_twist_cmd = msg
+        # rospy.loginfo("target vel: %f", self.target_twist_cmd.twist.linear.x)
         # rospy.loginfo("target vel: %f, omega: %f",
         #               self.target_twist_cmd.twist.linear.x, self.target_twist_cmd.twist.angular.z)
 
