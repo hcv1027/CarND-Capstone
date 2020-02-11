@@ -77,7 +77,7 @@ class Controller(object):
 
         # Get brake
         brake = 0.0
-        if linear_vel == 0 and curr_velocity < 0.1:
+        if linear_vel == 0 and curr_velocity < 1e-4:
             throttle = 0.0
             brake = 700
         # elif vel_error < 0.0:  # elif throttle < 0.1 and vel_error < 0.0:
