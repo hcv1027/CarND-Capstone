@@ -296,6 +296,7 @@ class WaypointUpdater(object):
                 end_wp_idx = closest_wp_idx + LOOKAHEAD_WPS
                 if end_wp_idx >= len(self.base_waypoints.waypoints):
                     end_wp_idx = end_wp_idx % len(self.base_waypoints.waypoints)
+                rospy.loginfo("end_wp_idx: %d", end_wp_idx)
                 # if end_wp_idx >= len(self.base_waypoints.waypoints):
                 #     rospy.logerr("end_wp_idx %d out of bound! Max: %d",
                 #                 end_wp_idx, len(self.base_waypoints.waypoints)-1)
@@ -317,6 +318,7 @@ class WaypointUpdater(object):
             else:
                 final_lane = self.extend_normal_waypoints()
                 self.prev_final_waypoints = final_lane.waypoints
+                rospy.loginfo("final_lane: %d", len(final_lane.waypoints))
         
         self.final_waypoints_pub.publish(final_lane)
         # if self.stopline_wp_idx >= 0:
@@ -431,13 +433,17 @@ class WaypointUpdater(object):
         prev_last_x = waypoints_1[-1].pose.pose.position.x
         prev_last_y = waypoints_1[-1].pose.pose.position.y
         prev_last_wp_idx = self.get_closest_waypoint_id(prev_last_x, prev_last_y, self.waypoints_2d, self.waypoints_tree)
-        if extend_size + (prev_last_wp_idx + 1) < len(self.base_waypoints.waypoints):
-            idx = prev_last_wp_idx + 1
+        next_wp_idx = prev_last_wp_idx + 1
+        if extend_size + next_wp_idx <= len(self.base_waypoints.waypoints):
+            idx = next_wp_idx
             waypoints_2 = self.base_waypoints.waypoints[idx:idx + extend_size]
         else:
-            idx = extend_size - (len(self.base_waypoints.waypoints) - prev_last_wp_idx)
-            waypoints_2 = self.base_waypoints.waypoints[prev_last_wp_idx + 1:] + self.base_waypoints.waypoints[0:idx]
+            idx = extend_size - (len(self.base_waypoints.waypoints) - next_wp_idx)
+            waypoints_2 = self.base_waypoints.waypoints[next_wp_idx:] + self.base_waypoints.waypoints[0:idx]
         
+        rospy.loginfo("prev_last: %f, %f", prev_last_x, prev_last_y)
+        rospy.loginfo("prev_last_wp_idx: %d, extend_size: %d", prev_last_wp_idx, extend_size)
+        rospy.loginfo("waypoints_1: %d, waypoints_2: %d", len(waypoints_1), len(waypoints_2))
         lane.waypoints = waypoints_1 + waypoints_2
         return lane
 
