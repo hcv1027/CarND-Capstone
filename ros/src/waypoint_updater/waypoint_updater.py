@@ -777,78 +777,78 @@ class WaypointUpdater(object):
         if test_case_result_3 is True:
             print("Test case 3 pass")
 
-    def generate_lane(self, closest_wp_idx):
-        lane = Lane()
-        lane.header = self.curr_pose.header
+    # def generate_lane(self, closest_wp_idx):
+    #     lane = Lane()
+    #     lane.header = self.curr_pose.header
 
-        lookahead_wp_idx = closest_wp_idx + LOOKAHEAD_WPS
-        end_wp_idx = lookahead_wp_idx
-        if self.stopline_wp_idx >= 0:
-            end_wp_idx = min(lookahead_wp_idx, self.stopline_wp_idx)
-        waypoints = self.base_waypoints.waypoints[closest_wp_idx: end_wp_idx]
-        if self.stopline_wp_idx == -1 or lookahead_wp_idx <= self.stopline_wp_idx:
-            lane.waypoints = waypoints
-        else:
-            # rospy.loginfo("Stop before: %d", self.stopline_wp_idx)
-            lane.waypoints = self.decelerate_waypoints(
-                waypoints, closest_wp_idx)
-        return lane
+    #     lookahead_wp_idx = closest_wp_idx + LOOKAHEAD_WPS
+    #     end_wp_idx = lookahead_wp_idx
+    #     if self.stopline_wp_idx >= 0:
+    #         end_wp_idx = min(lookahead_wp_idx, self.stopline_wp_idx)
+    #     waypoints = self.base_waypoints.waypoints[closest_wp_idx: end_wp_idx]
+    #     if self.stopline_wp_idx == -1 or lookahead_wp_idx <= self.stopline_wp_idx:
+    #         lane.waypoints = waypoints
+    #     else:
+    #         # rospy.loginfo("Stop before: %d", self.stopline_wp_idx)
+    #         lane.waypoints = self.decelerate_waypoints(
+    #             waypoints, closest_wp_idx)
+    #     return lane
 
-    def decelerate_waypoints(self, waypoints, closest_wp_idx):
-        temp = []
-        # Because closest_wp_idx is at the center of the vehicle,
-        # we want the vehicle's head stop at stop line waypoint,
-        # that is the reason for "-2"
-        # stop_wp_idx = max(0, self.stopline_wp_idx - closest_wp_idx - self.stop_buffer)
-        stop_wp_idx = max(0, len(waypoints) - self.stop_buffer)
+    # def decelerate_waypoints(self, waypoints, closest_wp_idx):
+    #     temp = []
+    #     # Because closest_wp_idx is at the center of the vehicle,
+    #     # we want the vehicle's head stop at stop line waypoint,
+    #     # that is the reason for "-2"
+    #     # stop_wp_idx = max(0, self.stopline_wp_idx - closest_wp_idx - self.stop_buffer)
+    #     stop_wp_idx = max(0, len(waypoints) - self.stop_buffer)
 
-        # if self.stopline_wp_idx >= 0 and self.base_waypoints is not None and self.curr_pose is not None:
-        #     lane = Lane()
-        #     lane.header = self.curr_pose.header
-        #     waypoints = []
-        #     new_waypoint = self.base_waypoints.waypoints[self.stopline_wp_idx]
-        #     waypoints.append(new_waypoint)
-        #     new_waypoint = self.base_waypoints.waypoints[stop_wp_idx]
-        #     waypoints.append(new_waypoint)
-        #     lane.waypoints = waypoints
-        #     self.stopline_pub.publish(lane)
-        lane = Lane()
-        lane.header = self.curr_pose.header
-        show_waypoints = []
-        rospy.loginfo("Stop before: %d, curr_wp: %d, stop_wp_idx: %d",
-                      self.stopline_wp_idx, closest_wp_idx, stop_wp_idx)
+    #     # if self.stopline_wp_idx >= 0 and self.base_waypoints is not None and self.curr_pose is not None:
+    #     #     lane = Lane()
+    #     #     lane.header = self.curr_pose.header
+    #     #     waypoints = []
+    #     #     new_waypoint = self.base_waypoints.waypoints[self.stopline_wp_idx]
+    #     #     waypoints.append(new_waypoint)
+    #     #     new_waypoint = self.base_waypoints.waypoints[stop_wp_idx]
+    #     #     waypoints.append(new_waypoint)
+    #     #     lane.waypoints = waypoints
+    #     #     self.stopline_pub.publish(lane)
+    #     lane = Lane()
+    #     lane.header = self.curr_pose.header
+    #     show_waypoints = []
+    #     rospy.loginfo("Stop before: %d, curr_wp: %d, stop_wp_idx: %d",
+    #                   self.stopline_wp_idx, closest_wp_idx, stop_wp_idx)
 
-        # found_plan = False
-        # speed = 0
-        # decel = 0.1
-        # while found_plan is not True:
-        #     for wp_idx in range(stop_wp_idx, -1, -1):
-        #         pass
-        # wp_s = waypoints[0]
-        # wp_e = waypoints[stop_wp_idx]
-        # start_x = wp_s
+    #     # found_plan = False
+    #     # speed = 0
+    #     # decel = 0.1
+    #     # while found_plan is not True:
+    #     #     for wp_idx in range(stop_wp_idx, -1, -1):
+    #     #         pass
+    #     # wp_s = waypoints[0]
+    #     # wp_e = waypoints[stop_wp_idx]
+    #     # start_x = wp_s
 
-        for wp_idx, waypoint in enumerate(waypoints):
-            new_waypoint = Waypoint()
-            new_waypoint.pose = waypoint.pose
-            dist = self.distance(waypoints, wp_idx, stop_wp_idx)
-            vel = math.sqrt(2 * MAX_DECEL * dist)
-            if wp_idx == 0 or (stop_wp_idx - 5 <= wp_idx and wp_idx <= stop_wp_idx):
-                rospy.loginfo("wp_idx: %d, dist: %f, vel: %f",
-                              wp_idx, dist, vel)
-            if vel < 1.0:
-                # rospy.loginfo("Set to 0")
-                vel = 0.0
-            new_waypoint.twist.twist.linear.x = min(
-                vel, waypoint.twist.twist.linear.x)
-            temp.append(new_waypoint)
-            # if vel == 0.0:
-            #     show_waypoints.append(waypoint)
-        show_waypoints.append(
-            self.base_waypoints.waypoints[self.stopline_wp_idx])
-        lane.waypoints = show_waypoints
-        # self.stopline_pub.publish(lane)
-        return temp
+    #     for wp_idx, waypoint in enumerate(waypoints):
+    #         new_waypoint = Waypoint()
+    #         new_waypoint.pose = waypoint.pose
+    #         dist = self.distance(waypoints, wp_idx, stop_wp_idx)
+    #         vel = math.sqrt(2 * MAX_DECEL * dist)
+    #         if wp_idx == 0 or (stop_wp_idx - 5 <= wp_idx and wp_idx <= stop_wp_idx):
+    #             rospy.loginfo("wp_idx: %d, dist: %f, vel: %f",
+    #                           wp_idx, dist, vel)
+    #         if vel < 1.0:
+    #             # rospy.loginfo("Set to 0")
+    #             vel = 0.0
+    #         new_waypoint.twist.twist.linear.x = min(
+    #             vel, waypoint.twist.twist.linear.x)
+    #         temp.append(new_waypoint)
+    #         # if vel == 0.0:
+    #         #     show_waypoints.append(waypoint)
+    #     show_waypoints.append(
+    #         self.base_waypoints.waypoints[self.stopline_wp_idx])
+    #     lane.waypoints = show_waypoints
+    #     # self.stopline_pub.publish(lane)
+    #     return temp
 
     def pose_cb(self, msg):
         # TODO: Implement
