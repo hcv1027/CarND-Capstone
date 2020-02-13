@@ -11,6 +11,7 @@ def decelerate(self, waypoints):
         for wp in waypoints[:-1][::-1]:
             dist = self.distance(wp.pose.pose.position, last.pose.pose.position)
             # What's the meaning of this line?
+            # Explaned here: https://libraries.io/github/maxitar/CarND-Capstone
             vel = math.sqrt(2 * MAX_DECEL * dist)
             if vel < 1.:
                 vel = 0.

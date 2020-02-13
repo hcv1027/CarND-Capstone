@@ -54,6 +54,7 @@ class DBWNode(object):
         self.throttle = 0.0
         self.brake = 0.0
         self.steering = 0.0
+        self.hz = 50
 
         self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
                                          SteeringCmd, queue_size=1)
@@ -72,7 +73,8 @@ class DBWNode(object):
                                      wheel_base=wheel_base,
                                      steer_ratio=steer_ratio,
                                      max_lat_accel=max_lat_accel,
-                                     max_steer_angle=max_steer_angle)
+                                     max_steer_angle=max_steer_angle,
+                                     hz=self.hz)
 
         # TODO: Subscribe to all the topics you need to
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
@@ -85,7 +87,7 @@ class DBWNode(object):
 
     def loop(self):
         # This 50Hz is important, if the frequency is lower than 20Hz, system will shutdown.
-        rate = rospy.Rate(50)  # 50Hz
+        rate = rospy.Rate(self.hz)  # 50Hz
         while not rospy.is_shutdown():
             # TODO: Get predicted throttle, brake, and steering using `twist_controller`
             # You should only publish the control commands if dbw is enabled
