@@ -86,7 +86,7 @@ class TLDetector(object):
         """
         curr_time = rospy.Time.now()
         duration = curr_time.to_sec() - msg.header.stamp.to_sec()
-        
+
         if duration > 0.2:
             # rospy.loginfo("Image message too old, skip")
             return
@@ -116,14 +116,14 @@ class TLDetector(object):
             if self.state != state:
                 self.state_count = 0
                 self.state = state
-                if confidence > 0.7:
+                if confidence > 0.7 and state != TrafficLight.UNKNOWN:
                     light_wp = light_wp if (
                         state == TrafficLight.RED or state == TrafficLight.YELLOW) else -1
                     self.last_state = self.state
                     self.last_wp = light_wp
                     rospy.loginfo("High confidence: %f", confidence)
                     self.upcoming_red_light_pub.publish(Int32(light_wp))
-                    
+
                 # rospy.loginfo("Set state_count = 0")
             elif self.state_count >= STATE_COUNT_THRESHOLD:
                 light_wp = light_wp if (

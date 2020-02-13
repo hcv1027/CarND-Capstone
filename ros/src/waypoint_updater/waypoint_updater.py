@@ -61,8 +61,8 @@ class WaypointUpdater(object):
 
         self.final_waypoints_pub = rospy.Publisher(
             'final_waypoints', Lane, queue_size=1)
-        self.stopline_pub = rospy.Publisher(
-            'stop_waypoints', Lane, queue_size=1)
+        # self.stopline_pub = rospy.Publisher(
+        #     'stop_waypoints', Lane, queue_size=1)
 
         # TODO: Add other member variables you need below
         self.dbw_enable = False
@@ -275,10 +275,13 @@ class WaypointUpdater(object):
                             rospy.loginfo("idx: %d, vel: %f", idx, wp.twist.twist.linear.x)
                 else:
                     # We must generate a stop plan in this distance range!
-                    final_lane = self.generate_jmt_waypoints(
-                        closest_wp_idx, self.stopline_wp_idx - self.stop_buffer, 0.0)
-                    # final_lane = self.generate_stop_waypoints(
-                        # closest_wp_idx, self.stopline_wp_idx - self.stop_buffer)
+                    if self.curr_twist[-1].twist.linear.x < 1e-2 and stop_dist < 10.0:
+                        final_lane = self.generate_stop_waypoints(
+                            closest_wp_idx, self.stopline_wp_idx - self.stop_buffer)
+                    else:
+                        final_lane = self.generate_jmt_waypoints(
+                            closest_wp_idx, self.stopline_wp_idx - self.stop_buffer, 0.0)
+                    
                     if len(final_lane.waypoints) == 0:
                         rospy.logwarn("JMT fail to find a stop plan, just stop it!")
                         end_wp_idx = self.stopline_wp_idx - self.stop_buffer
@@ -296,7 +299,7 @@ class WaypointUpdater(object):
                 end_wp_idx = closest_wp_idx + LOOKAHEAD_WPS
                 if end_wp_idx >= len(self.base_waypoints.waypoints):
                     end_wp_idx = end_wp_idx % len(self.base_waypoints.waypoints)
-                rospy.loginfo("end_wp_idx: %d", end_wp_idx)
+                # rospy.loginfo("end_wp_idx: %d", end_wp_idx)
                 # if end_wp_idx >= len(self.base_waypoints.waypoints):
                 #     rospy.logerr("end_wp_idx %d out of bound! Max: %d",
                 #                 end_wp_idx, len(self.base_waypoints.waypoints)-1)
@@ -304,7 +307,7 @@ class WaypointUpdater(object):
                 end_vel = self.max_vel
                 final_lane = self.generate_jmt_waypoints(closest_wp_idx, end_wp_idx, end_vel)
                 if len(final_lane.waypoints) == 0 or final_lane.waypoints[0].twist.twist.linear.x < 1.0:
-                    end_vel = min(self.max_vel, self.curr_twist[-1].twist.linear.x + 0.5)
+                    end_vel = min(self.max_vel, self.curr_twist[-1].twist.linear.x + 0.3)
                     # rospy.loginfo("end_vel: %f", end_vel)
                     final_lane = self.generate_normal_waypoints(closest_wp_idx, end_vel)
                     if abs(end_vel - self.max_vel) < 1e-3:
@@ -318,7 +321,6 @@ class WaypointUpdater(object):
             else:
                 final_lane = self.extend_normal_waypoints()
                 self.prev_final_waypoints = final_lane.waypoints
-                rospy.loginfo("final_lane: %d", len(final_lane.waypoints))
         
         self.final_waypoints_pub.publish(final_lane)
         # if self.stopline_wp_idx >= 0:
@@ -364,7 +366,7 @@ class WaypointUpdater(object):
             waypoints_1 = self.base_waypoints.waypoints[closest_wp_idx:]
             waypoints_2 = self.base_waypoints.waypoints[0:end_wp_idx]
             waypoints = waypoints_1 + waypoints_2
-        for idx, wp in enumerate(waypoints):
+        for wp in waypoints:
             new_waypoint = Waypoint()
             new_waypoint.pose.header = self.curr_pose.header
             new_waypoint.pose = wp.pose
@@ -441,9 +443,6 @@ class WaypointUpdater(object):
             idx = extend_size - (len(self.base_waypoints.waypoints) - next_wp_idx)
             waypoints_2 = self.base_waypoints.waypoints[next_wp_idx:] + self.base_waypoints.waypoints[0:idx]
         
-        rospy.loginfo("prev_last: %f, %f", prev_last_x, prev_last_y)
-        rospy.loginfo("prev_last_wp_idx: %d, extend_size: %d", prev_last_wp_idx, extend_size)
-        rospy.loginfo("waypoints_1: %d, waypoints_2: %d", len(waypoints_1), len(waypoints_2))
         lane.waypoints = waypoints_1 + waypoints_2
         return lane
 
@@ -516,7 +515,7 @@ class WaypointUpdater(object):
             for dt in np.arange(0.1, jmt_duration, TIME_STEP):
                 d = poly_eval(dt, jmt_params)
                 next_vel = poly_eval(dt, vel_params)
-                delta_dist = (d - prev_d)
+                # delta_dist = (d - prev_d)
                 delta_time += TIME_STEP
                 # if True:
                 # if next_vel > 0.5 or delta_dist > 1.0:
@@ -563,11 +562,6 @@ class WaypointUpdater(object):
     def get_jmt_params(self, start, end, duration):
         jmt_duration_dict = self.jmt_duration_dict[str(duration)]
         t1 = jmt_duration_dict['t1']
-        # t2 = jmt_duration_dict['t2']
-        # t3 = jmt_duration_dict['t3']
-        # t4 = jmt_duration_dict['t4']
-        # t5 = jmt_duration_dict['t5']
-        # a = jmt_duration_dict['a']
         a_inv = jmt_duration_dict['a_inv']
 
         b = np.array([0.0, 0.0, 0.0])
@@ -644,11 +638,6 @@ class WaypointUpdater(object):
     def pose_cb(self, msg):
         # TODO: Implement
         self.curr_pose = msg
-        # x = self.curr_pose.pose.position.x
-        # y = self.curr_pose.pose.position.y
-        # curr_time = rospy.Time.now()
-        # duration = curr_time.to_sec() - msg.header.stamp.to_sec()
-        # rospy.loginfo("curr pose, dura: %f", duration)
 
     def velocity_cb(self, msg):
         if len(self.curr_twist) == 50:
