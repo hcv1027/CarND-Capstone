@@ -97,10 +97,6 @@ class DBWNode(object):
                     curr_twist_cmd=self.curr_twist_cmd,
                     target_twist_cmd=self.target_twist_cmd
                 )
-                # rospy.loginfo(
-                #     "vel: %f - %f", self.target_twist_cmd.twist.linear.x, self.curr_twist_cmd.twist.linear.x)
-                # rospy.loginfo(
-                #     "throttle: %f, brake: %f, steer: %f", throttle, brake, steering)
                 self.publish(throttle, brake, steering)
             rate.sleep()
 
@@ -129,13 +125,15 @@ class DBWNode(object):
     def current_velocity_cb(self, msg):
         self.curr_twist_cmd = msg
         # rospy.loginfo("curr vel: %f, omega: %f",
-        #               self.curr_twist_cmd.twist.linear.x, self.curr_twist_cmd.twist.angular.z)
+        #               self.curr_twist_cmd.twist.linear.x, 
+        #               self.curr_twist_cmd.twist.angular.z)
 
     def twist_cmd_cb(self, msg):
         self.target_twist_cmd = msg
         # rospy.loginfo("target vel: %f", self.target_twist_cmd.twist.linear.x)
         # rospy.loginfo("target vel: %f, omega: %f",
-        #               self.target_twist_cmd.twist.linear.x, self.target_twist_cmd.twist.angular.z)
+        #               self.target_twist_cmd.twist.linear.x, 
+        #               self.target_twist_cmd.twist.angular.z)
 
 
 if __name__ == '__main__':

@@ -25,8 +25,6 @@ class Controller(object):
         self.hz = hz
         self.last_time = rospy.get_time()
         self.last_vel = 0.0
-        # rospy.loginfo("Controller type(vehicle_mass): %s, %f",
-        #               type(self.vehicle_mass), self.vehicle_mass)
 
         # Initialize pid-controller
         # kp = 0.3
@@ -40,7 +38,6 @@ class Controller(object):
         # Initialize low pass filter
         ts = 0.02 # 1/self.hz ?
         tau = 2 * ts
-        # tau = 0.5
         self.vel_lpf = LowPassFilter(tau, ts)
 
         # Initialize yaw-controller
@@ -66,19 +63,13 @@ class Controller(object):
 
         # Get throttle
         vel_error = target_twist_cmd.twist.linear.x - curr_twist_cmd.twist.linear.x
-        # print("{:f}, ".format(vel_error))
         throttle = self.throttle_controller.step(vel_error, sample_time)
-        # rospy.loginfo("throttle: %f, error: %f, sample_time: %f",
-        #               throttle, vel_error, sample_time)
 
         # Get steering angle
         linear_vel = target_twist_cmd.twist.linear.x
         angular_vel = target_twist_cmd.twist.angular.z
         steer = self.steer_controller.get_steering(
             linear_vel, angular_vel, curr_velocity)
-        # rospy.loginfo("control linear_vel: %f, angular_vel: %f, curr_velocity: %f",
-        #               linear_vel, angular_vel, curr_velocity)
-        # rospy.loginfo("steer: %f", steer)
 
         # Get brake
         brake = 0.0
@@ -87,23 +78,13 @@ class Controller(object):
             steer = 0.0
             brake = 700
         elif throttle > 0.0:
-            brake = 0
+            brake = 0.0
         else:
             decel = -throttle
             throttle = 0
             if decel < self.brake_deadband:
                 decel = 0.
             brake = decel * self.wheel_radius * (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY)
-        # elif vel_error < 0.0:  # elif throttle < 0.1 and vel_error < 0.0:
-        # elif throttle < 0.1 and vel_error < 0.0:
-        #     throttle = 0.0
-        #     # decel = max(abs(vel_error), abs(self.decel_limit))
-        #     decel = max(vel_error, self.decel_limit)
-        #     # rospy.loginfo("Controller type(vehicle_mass): %s, %f",
-        #     #               type(self.vehicle_mass), self.vehicle_mass)
-        #     # rospy.loginfo("self.wheel_radius: %f", self.wheel_radius)
-        #     # rospy.loginfo("abs(decel): %f", abs(decel))
-        #     brake = abs(decel) * self.vehicle_mass * self.wheel_radius
         
         return throttle, brake, steer
 
