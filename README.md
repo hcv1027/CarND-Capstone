@@ -2,9 +2,11 @@ This is the project repo for the final project of the Udacity Self-Driving Car N
 
 ### Team
 
-|        Name         |                       GitHub account                       |                 Udacity Email                 |
-|:-------------------:|:----------------------------------------------------------:|:---------------------------------------------:|
-| Josper Tsai(Leader) | [Josper Tsai](https://github.com/hcv1027?tab=repositories) | [hcv1027@gmail.com](mailto:hcv1027@gmail.com) |
+I complete this project individually, so there is only one member.
+
+|         Name         |                       GitHub account                       |                 Udacity Email                 |
+|:--------------------:|:----------------------------------------------------------:|:---------------------------------------------:|
+| Josper Tsai (Leader) | [Josper Tsai](https://github.com/hcv1027?tab=repositories) | [hcv1027@gmail.com](mailto:hcv1027@gmail.com) |
 
 ---
 
@@ -192,4 +194,4 @@ It is one of the main function I need to implement in this project. It works for
 #### Final video
 
 Here is the video of my project's final result:  
-<a href="https://youtu.be/TJ5hbhmTOow" target="_blank"><img src="./imgs/final_video.png" alt="Final video" width="240" height="180" border="10" /></a>
+<a href="https://youtu.be/TJ5hbhmTOow" target="_blank"><img src="./imgs/final_video.png" alt="Final video" width="914" height="667" border="10" /></a>
