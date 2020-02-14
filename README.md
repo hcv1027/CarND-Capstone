@@ -137,18 +137,31 @@ It is one of the main function I need to implement in this project. It works as 
 
 Then `waypoint_updater.py` generates a final trajectory based on dynamic conditions.(Ex: Traffic light, obstacles, ect.) and finally publishs to the topic `/final_waypoints`.
 
-I use the `jerk minization trajectory` method to generate the waypoints trajectory which follows the rule of traffic light state and the limitation of vehicle's velocity and acceleration.
+I use the `jerk minization trajectory` method to generate the waypoints trajectory which follows the rule of traffic light state and the limitation of vehicle's velocity and acceleration. Below image is the trajectory, velocity, acceleration and jerk changes through the given duration accroading to the jmt parameters found by my method.  
+The condition of this example diagram is:
+1. Speed up from 1.003842 m/s to 11.11 ms.
+2. Acceleration is less than 1.0 m^2/s.
+3. Jerk is less than 10.0 m^3/s.
+4. Movement is 99.005119 meters.
+5. Duration is less than 40 seconds.  
+
+You can see that the velocity will speed up from 1.003842 m/s to 11.11 ms in the duration 15.6 seconds, and the acceleration are less than 1.0 m^2/s during this period. The jerk is also very small.
+![jmt diagram](./imgs/jmt_minization.png)  
+(y: movement, v: velocity, a: acceleration, j: jerk)
+
+The most hard part here is to find a jmt parameters which will not violate the velocity and acceleration limitaion. (The simulator is 11.11 m/s, acc is 1.0 m^2/s. And the Carla's velocity limitaion is 2.78 m/s only). If my jmt method really fails to find a jmt parameters under current conditions, `waypoint_updater.py` will try to generate the waypoints trajectory in more simple way but keep vehicle slow down or speed up as gentle as possible.
 
 
 #### TrafficLightDetector
 
 It is one of the main function I need to implement in this project. `tl_classifier.py` is responsible for traffic light detection and classification.  
 
-Before this project, I have no experience of object detection project. So I first study [this project](https://github.com/hcv1027/CarND-Object-Detection-Lab) for beginning. But I'm still a little confused about the role of *SSD* and *MobileNet* intruduced in this project, and I found the answer here: Q&A: [Difference between SSD and Mobilenet](https://stackoverflow.com/questions/50585597/difference-between-ssd-and-mobilenet).  
+Before this project, I have no idea about how to train a deep learning model for object detection purpose. So I first study [this project](https://github.com/hcv1027/CarND-Object-Detection-Lab) for beginning. But I'm still a little confused about the role of *SSD* and *MobileNet* intruduced in this project, and I found the answer here:  
+Q&A: [Difference between SSD and Mobilenet](https://stackoverflow.com/questions/50585597/difference-between-ssd-and-mobilenet).  
 
 If this is your first time to use Tensorflow's `Object Detection API` like me, I strongly suggest you to read [this repository](https://github.com/alex-lechner/Traffic-Light-Classification) or [this article](https://medium.com/@WuStangDan/step-by-step-tensorflow-object-detection-api-tutorial-part-1-selecting-a-model-a02b6aabe39e). Both of these two authors describe how to start in detail. Believe me, you will have less pain in the process of using `Object Detection API` if you read these articles first. But if you try by yourself first, and then read these articles, you will have another kind of fun, haha.
 
-Anyway, I finally choose `ssd_inception_v2_coco` as the pretrained model for detecting the real traffic light image provided by Udacity's [training bag](https://s3-us-west-1.amazonaws.com/udacity-selfdrivingcar/traffic_light_bag_file.zip). And use `ssd_mobilenet_v1_coco` as the pretrained model to detect simulator's traffic light image.  
+Anyway, I finally choose `ssd_inception_v2_coco` as the pretrained model for detecting the real traffic light image provided by Udacity's [training bag](https://s3-us-west-1.amazonaws.com/udacity-selfdrivingcar/traffic_light_bag_file.zip). And use `ssd_mobilenet_v1_coco` as the pretrained model to detect simulator's traffic light image. And I use [labelImg](https://github.com/tzutalin/labelImg) to label my training data.
 
 Here are some result images:  
 ![](./imgs/tl_detector/sim_green.jpg)
@@ -189,7 +202,7 @@ double PurePursuit::calcCurvature(geometry_msgs::Point target) const
 
 #### TwistController
 
-It is one of the main function I need to implement in this project. It works for computing the value of throttle, steer and brake accroading to the current vehicle's linear and angular velocities and the desired linear and angular velocities published by `WaypointFollower`.
+It is one of the main function I need to implement in this project. It works for computing the value of throttle, steer and brake accroading to the current vehicle's linear and angular velocities and the desired linear and angular velocities published by `WaypointFollower`. I fine tune the parameters based on Udacity's default parameters.
 
 #### Final video
 
