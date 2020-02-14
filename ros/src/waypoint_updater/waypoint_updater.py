@@ -270,9 +270,9 @@ class WaypointUpdater(object):
                     else:
                         self.prev_final_waypoints = final_lane.waypoints
                         self.change_plan = False
-                        rospy.loginfo("Get a jmt stop plan: %d", len(self.prev_final_waypoints))
-                        for idx, wp in enumerate(self.prev_final_waypoints):
-                            rospy.loginfo("idx: %d, vel: %f", idx, wp.twist.twist.linear.x)
+                        # rospy.loginfo("Get a jmt stop plan: %d", len(self.prev_final_waypoints))
+                        # for idx, wp in enumerate(self.prev_final_waypoints):
+                        #     rospy.loginfo("idx: %d, vel: %f", idx, wp.twist.twist.linear.x)
                 else:
                     # We must generate a stop plan in this distance range!
                     if self.curr_twist[-1].twist.linear.x < 1e-2 and stop_dist < 10.0:
@@ -283,13 +283,13 @@ class WaypointUpdater(object):
                             closest_wp_idx, self.stopline_wp_idx - self.stop_buffer, 0.0)
                     
                     if len(final_lane.waypoints) == 0:
-                        rospy.logwarn("JMT fail to find a stop plan, just stop it!")
+                        # rospy.logwarn("JMT fail to find a stop plan, just stop it!")
                         end_wp_idx = self.stopline_wp_idx - self.stop_buffer
                         final_lane = self.generate_stop_waypoints(closest_wp_idx, end_wp_idx)
-                    else:
-                        rospy.loginfo("Get a jmt stop plan: %d", len(final_lane.waypoints))
-                        for idx, wp in enumerate(final_lane.waypoints):
-                            rospy.loginfo("idx: %d, vel: %f", idx, wp.twist.twist.linear.x)
+                    # else:
+                    #     rospy.loginfo("Get a jmt stop plan: %d", len(final_lane.waypoints))
+                    #     for idx, wp in enumerate(final_lane.waypoints):
+                    #         rospy.loginfo("idx: %d, vel: %f", idx, wp.twist.twist.linear.x)
                     self.prev_final_waypoints = final_lane.waypoints
                     self.change_plan = False
                     
