@@ -61,8 +61,8 @@ class WaypointUpdater(object):
 
         self.final_waypoints_pub = rospy.Publisher(
             'final_waypoints', Lane, queue_size=1)
-        # self.stopline_pub = rospy.Publisher(
-        #     'stop_waypoints', Lane, queue_size=1)
+        self.stopline_pub = rospy.Publisher(
+            'stop_waypoints', Lane, queue_size=1)
 
         # TODO: Add other member variables you need below
         self.dbw_enable = False
@@ -93,6 +93,16 @@ class WaypointUpdater(object):
         # rospy.loginfo("jmt: %f, %f, %f, %f, %f, %f",
         #               jmt[0], jmt[1], jmt[2], jmt[3], jmt[4], jmt[5])
         # self.test_hyperplane()
+        # total = 20
+        # start = 6
+        # end = 23
+        # idx_list = []
+        # idx = start
+        # while idx != end % total:
+        #     rospy.loginfo("idx: %d", idx)
+        #     idx_list.append(idx)
+        #     idx = (idx + 1) % total
+        # print(idx_list)
 
         self.loop()
 
@@ -158,6 +168,7 @@ class WaypointUpdater(object):
     def get_closest_waypoint_id_no_kdtree(self, x, y, waypoints):
         closest_idx = -1
         min_dist_2 = 1e10
+        # far_away_counter = 0
         for i in range(len(waypoints)):
             x1 = waypoints[i].pose.pose.position.x
             y1 = waypoints[i].pose.pose.position.y
@@ -165,6 +176,11 @@ class WaypointUpdater(object):
             if dist_2 < min_dist_2:
                 min_dist_2 = dist_2
                 closest_idx = i
+            #     far_away_counter = 0
+            # else:
+            #     far_away_counter += 1
+            # if far_away_counter > 10:
+            #     break
         if closest_idx == 0:
             pose_next = [waypoints[1].pose.pose.position.x,
                 waypoints[1].pose.pose.position.y]
@@ -306,6 +322,7 @@ class WaypointUpdater(object):
                 #     end_wp_idx = len(self.base_waypoints.waypoints) - 1
                 end_vel = self.max_vel
                 final_lane = self.generate_jmt_waypoints(closest_wp_idx, end_wp_idx, end_vel)
+                # final_lane = self.generate_normal_waypoints(closest_wp_idx, end_vel)
                 if len(final_lane.waypoints) == 0 or final_lane.waypoints[0].twist.twist.linear.x < 1.0:
                     end_vel = min(self.max_vel, self.curr_twist[-1].twist.linear.x + 0.3)
                     # rospy.loginfo("end_vel: %f", end_vel)
@@ -319,9 +336,11 @@ class WaypointUpdater(object):
                     self.change_plan = False
                     self.prev_final_waypoints = final_lane.waypoints
             else:
-                final_lane = self.extend_normal_waypoints()
+                final_lane = self.extend_normal_waypoints(closest_wp_idx)
                 self.prev_final_waypoints = final_lane.waypoints
         
+        # for wp in final_lane.waypoints:
+        #     rospy.loginfo("final xy: %f, %f", wp.pose.pose.position.x, wp.pose.pose.position.y)
         self.final_waypoints_pub.publish(final_lane)
         # if self.stopline_wp_idx >= 0:
         #     lane = Lane()
@@ -421,35 +440,98 @@ class WaypointUpdater(object):
             lane.waypoints.append(new_waypoint)
         return lane
 
-    def extend_normal_waypoints(self):
+    def extend_normal_waypoints(self, closest_wp_idx):
         lane = Lane()
         lane.header = self.curr_pose.header
         
         curr_x = self.curr_pose.pose.position.x
         curr_y = self.curr_pose.pose.position.y
+        # rospy.loginfo("curr xy: %f, %f", curr_x, curr_y)
+        rospy.loginfo("prev_final_waypoints size: %d", len(self.prev_final_waypoints))
         prev_closest_idx = self.get_closest_waypoint_id_no_kdtree(curr_x, curr_y,
             self.prev_final_waypoints)
+        rospy.loginfo("prev_closest_idx: %d", prev_closest_idx)
 
         waypoints_1 = self.prev_final_waypoints[prev_closest_idx:] if prev_closest_idx >= 0 else []
-        extend_size = LOOKAHEAD_WPS - len(waypoints_1)
-        prev_last_x = waypoints_1[-1].pose.pose.position.x
-        prev_last_y = waypoints_1[-1].pose.pose.position.y
-        prev_last_wp_idx = self.get_closest_waypoint_id(prev_last_x, prev_last_y, self.waypoints_2d, self.waypoints_tree)
-        next_wp_idx = prev_last_wp_idx + 1
-        if extend_size + next_wp_idx <= len(self.base_waypoints.waypoints):
-            idx = next_wp_idx
-            waypoints_2 = self.base_waypoints.waypoints[idx:idx + extend_size]
+        waypoints_2 = []
+        if len(waypoints_1) > 0:
+            prev_last_x = waypoints_1[-1].pose.pose.position.x
+            prev_last_y = waypoints_1[-1].pose.pose.position.y
+            prev_last_wp_idx = self.get_closest_waypoint_id(
+                prev_last_x, prev_last_y, self.waypoints_2d, self.waypoints_tree)
+            wp_idx_diff = prev_last_wp_idx - closest_wp_idx
+            if wp_idx_diff < 0:
+                wp_idx_diff += len(self.base_waypoints.waypoints)
+            if wp_idx_diff < LOOKAHEAD_WPS:
+                next_wp_idx = prev_last_wp_idx + 1
+                extend_size = LOOKAHEAD_WPS - wp_idx_diff
+                if extend_size + next_wp_idx <= len(self.base_waypoints.waypoints):
+                    idx = next_wp_idx
+                    waypoints_2 = self.base_waypoints.waypoints[idx:idx + extend_size]
+                else:
+                    idx = extend_size - (len(self.base_waypoints.waypoints) - next_wp_idx)
+                    waypoints_2 = self.base_waypoints.waypoints[next_wp_idx:] + self.base_waypoints.waypoints[0:idx]
         else:
-            idx = extend_size - (len(self.base_waypoints.waypoints) - next_wp_idx)
-            waypoints_2 = self.base_waypoints.waypoints[next_wp_idx:] + self.base_waypoints.waypoints[0:idx]
+            end_idx = closest_wp_idx + LOOKAHEAD_WPS
+            if end_idx < len(self.base_waypoints.waypoints):
+                waypoints_1 = self.base_waypoints.waypoints[closest_wp_idx:end_idx]
+            else:
+                end_idx = LOOKAHEAD_WPS - (len(self.base_waypoints.waypoints) - closest_wp_idx)
+                waypoints_1 = self.base_waypoints.waypoints[closest_wp_idx:]
+                waypoints_2 = self.base_waypoints.waypoints[0:end_idx]
         
         lane.waypoints = waypoints_1 + waypoints_2
         return lane
 
+    def get_cubic_spline(self, start_wp_idx, end_wp_idx):
+        # rospy.loginfo("get_cubic_spline: %d, %d", start_wp_idx, end_wp_idx)
+        idx = start_wp_idx
+        idx_list = []
+        while idx != end_wp_idx % len(self.base_waypoints.waypoints):
+            # rospy.loginfo("add wp idx: %d", idx)
+            idx_list.append(idx)
+            idx = (idx + 1) % len(self.base_waypoints.waypoints)
+        
+        dist = 0.0
+        sample_d = []
+        sample_x = []
+        sample_y = []
+        sample_z = []
+        for i in range(0, len(idx_list)):
+            # rospy.loginfo("wp idx: %d", i)
+            idx = idx_list[i]
+            if i == 0:
+                wp = self.base_waypoints.waypoints[idx]
+                sample_d.append(dist)
+                sample_x.append(wp.pose.pose.position.x)
+                sample_y.append(wp.pose.pose.position.y)
+                sample_z.append(wp.pose.pose.position.z)
+                x = wp.pose.pose.position.x
+                y = wp.pose.pose.position.y
+                # rospy.loginfo("dist: %f, sample xy: %f, %f", dist, x, y)
+            else:
+                idx_1 = idx_list[i-1]
+                idx_2 = idx_list[i]
+                wp1 = self.base_waypoints.waypoints[idx_1]
+                wp2 = self.base_waypoints.waypoints[idx_2]
+                dist += math.sqrt(pow(wp1.pose.pose.position.x - wp2.pose.pose.position.x, 2) +
+                    pow(wp1.pose.pose.position.y - wp2.pose.pose.position.y, 2))
+                sample_d.append(dist)
+                sample_x.append(wp2.pose.pose.position.x)
+                sample_y.append(wp2.pose.pose.position.y)
+                sample_z.append(wp2.pose.pose.position.z)
+                x = wp2.pose.pose.position.x
+                y = wp2.pose.pose.position.y
+                # rospy.loginfo("dist: %f, sample xy: %f, %f", dist, x, y)
+        cs_x = CubicSpline(sample_d, sample_x)
+        cs_y = CubicSpline(sample_d, sample_y)
+        cs_z = CubicSpline(sample_d, sample_z)
+        return cs_x, cs_y, cs_z
+
     def generate_jmt_waypoints(self, closest_wp_idx, end_wp_idx, end_vel):
         # if self.curr_twist[-1].twist.linear.x < end_vel:
-        #     rospy.loginfo("closest_wp_idx: %d, end_wp_idx: %d, curr_vel: %f, end_vel: %f",
-        #                   closest_wp_idx, end_wp_idx, self.curr_twist[-1].twist.linear.x, end_vel)
+        rospy.loginfo("closest_wp_idx: %d, end_wp_idx: %d, curr_vel: %f, end_vel: %f",
+                        closest_wp_idx, end_wp_idx, self.curr_twist[-1].twist.linear.x, end_vel)
         lane = Lane()
         lane.header = self.curr_pose.header
         lane.waypoints = []
@@ -474,60 +556,71 @@ class WaypointUpdater(object):
                 jmt_params = jmt
                 break
         if jmt_params is not None:
-            # rospy.loginfo("jmt_params: %f, %f, %f, %f, %f, %f",
-            #               jmt_params[0], jmt_params[1], jmt_params[2],
-            #               jmt_params[3], jmt_params[4], jmt_params[5])
+            rospy.loginfo("jmt_params: %f, %f, %f, %f, %f, %f",
+                          jmt_params[0], jmt_params[1], jmt_params[2],
+                          jmt_params[3], jmt_params[4], jmt_params[5])
             vel_params = derivative(jmt_params)
-            sample_xy = []
-            if end_wp_idx >= closest_wp_idx:
-                for i in range(closest_wp_idx, end_wp_idx):
-                    sample_xy.append([self.base_waypoints.waypoints[i].pose.pose.position.x,
-                                    self.base_waypoints.waypoints[i].pose.pose.position.y])
-            else:
-                for i in range(closest_wp_idx, len(self.base_waypoints.waypoints)):
-                    sample_xy.append([self.base_waypoints.waypoints[i].pose.pose.position.x,
-                                    self.base_waypoints.waypoints[i].pose.pose.position.y])
-                for i in range(0, end_wp_idx):
-                    sample_xy.append([self.base_waypoints.waypoints[i].pose.pose.position.x,
-                                    self.base_waypoints.waypoints[i].pose.pose.position.y])
-            # Sort waypoint accroding to x coordinate, spline needs x to be sorted.
-            sample_xy = sorted(sample_xy, key=lambda x: x[0])
-            # Remove the xy point whose x coordinate is too close to previous xy point.
-            safe_sample_xy = [sample_xy[0]]
-            for i in range(1, len(sample_xy)):
-                if abs(sample_xy[i][0] - sample_xy[i-1][0]) > 0.01:
-                    safe_sample_xy.append(sample_xy[i])
-            sample_xy = np.array(safe_sample_xy)
-            try:
-                cs = CubicSpline(sample_xy[:, 0], sample_xy[:, 1])
-            except:
-                rospy.logerr("CubicSpline fail:")
-                for x in sample_xy[:, 0]:
-                    print("x: %f", x)
+            # sample_xy = []
+            # if end_wp_idx >= closest_wp_idx:
+            #     for i in range(closest_wp_idx, end_wp_idx):
+            #         sample_xy.append([self.base_waypoints.waypoints[i].pose.pose.position.x,
+            #                         self.base_waypoints.waypoints[i].pose.pose.position.y])
+            # else:
+            #     for i in range(closest_wp_idx, len(self.base_waypoints.waypoints)):
+            #         sample_xy.append([self.base_waypoints.waypoints[i].pose.pose.position.x,
+            #                         self.base_waypoints.waypoints[i].pose.pose.position.y])
+            #     for i in range(0, end_wp_idx):
+            #         sample_xy.append([self.base_waypoints.waypoints[i].pose.pose.position.x,
+            #                         self.base_waypoints.waypoints[i].pose.pose.position.y])
+            # # Sort waypoint accroding to x coordinate, spline needs x to be sorted.
+            # sample_xy = sorted(sample_xy, key=lambda x: x[0])
+            # # Remove the xy point whose x coordinate is too close to previous xy point.
+            # safe_sample_xy = [sample_xy[0]]
+            # for i in range(1, len(sample_xy)):
+            #     if abs(sample_xy[i][0] - sample_xy[i-1][0]) > 0.01:
+            #         safe_sample_xy.append(sample_xy[i])
+            # sample_xy = np.array(safe_sample_xy)
+            # try:
+            #     cs = CubicSpline(sample_xy[:, 0], sample_xy[:, 1])
+            # except:
+            #     rospy.logerr("CubicSpline fail:")
+            #     for x in sample_xy[:, 0]:
+            #         print("x: %f", x)
+            cs_x, cs_y, cs_z = self.get_cubic_spline(closest_wp_idx, end_wp_idx)
 
-            start_x = self.base_waypoints.waypoints[closest_wp_idx].pose.pose.position.x
-            end_x = self.base_waypoints.waypoints[end_wp_idx].pose.pose.position.x
-            dist_x = end_x - start_x
-            new_x = []
+            # start_x = self.base_waypoints.waypoints[closest_wp_idx].pose.pose.position.x
+            # end_x = self.base_waypoints.waypoints[end_wp_idx].pose.pose.position.x
+            # dist_x = end_x - start_x
+            # new_x = []
+            # new_y = []
+            query_d = []
             new_vel = []
-            prev_d = 0.0
+            # prev_d = 0.0
             delta_time = 0.0
             for dt in np.arange(0.1, jmt_duration, TIME_STEP):
                 d = poly_eval(dt, jmt_params)
                 next_vel = poly_eval(dt, vel_params)
                 # delta_dist = (d - prev_d)
-                delta_time += TIME_STEP
+                # delta_time += TIME_STEP
                 # if True:
                 # if next_vel > 0.5 or delta_dist > 1.0:
                 if next_vel > 0.08 or dt == jmt_duration - TIME_STEP:
-                    dist_ratio = d / dist
-                    next_x = start_x + dist_x * dist_ratio
-                    new_x.append(next_x)
+                    # dist_ratio = d / dist
+                    # next_x = start_x + dist_x * dist_ratio
+                    # new_x.append(next_x)
+                    query_d.append(d)
                     new_vel.append(next_vel)
-                    prev_d = d
-                    delta_time = 0.0
-            new_x = np.array(new_x)
-            new_y = cs(new_x)
+                    # prev_d = d
+                    # delta_time = 0.0
+            # new_x = np.array(new_x)
+            # new_y = cs(new_x)
+            # rospy.loginfo("query d: %f, %f, size: %d", query_d[0], query_d[-1], len(query_d))
+            curr_x = self.curr_pose.pose.position.x
+            curr_y = self.curr_pose.pose.position.y
+            # rospy.loginfo("curr xy: %f, %f", curr_x, curr_y)
+            new_x = cs_x(query_d)
+            new_y = cs_y(query_d)
+            new_z = cs_z(query_d)
             # Skip the angular velocity and yaw, because waypoint_follower doesn't use it.
             # It computes angular velocity accroding to the curvature and linear velocity.
             for i in range(len(new_vel)):
@@ -535,7 +628,8 @@ class WaypointUpdater(object):
                 waypoint.pose.header = self.curr_pose.header
                 waypoint.pose.pose.position.x = new_x[i]
                 waypoint.pose.pose.position.y = new_y[i]
-                waypoint.pose.pose.position.z = 0.0
+                waypoint.pose.pose.position.z = new_z[i]
+                rospy.loginfo("jmt xy: %f, %f", new_x[i], new_y[i])
                 # Transform from yaw to quaternion
                 # q = tf.transformations.quaternion_from_euler(0., 0., yaw)
                 # waypoint.pose.pose.orientation = Quaternion(*q)
@@ -657,6 +751,12 @@ class WaypointUpdater(object):
     def waypoints_cb(self, waypoints):
         # TODO: Implement
         self.base_waypoints = waypoints
+        global LOOKAHEAD_WPS
+        temp = LOOKAHEAD_WPS
+        max_wp_count = min(LOOKAHEAD_WPS, len(waypoints.waypoints) / 2)
+        LOOKAHEAD_WPS = max_wp_count
+        if temp != LOOKAHEAD_WPS:
+            rospy.loginfo("Change LOOKAHEAD_WPS: %d to %d", temp, LOOKAHEAD_WPS)
         if not self.waypoints_2d:
             self.waypoints_2d = [[waypoint.pose.pose.position.x,
                                   waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
