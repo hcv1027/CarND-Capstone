@@ -13,7 +13,7 @@ import yaml
 import math
 from scipy.spatial import KDTree
 
-STATE_COUNT_THRESHOLD = 1
+STATE_COUNT_THRESHOLD = 2
 
 
 class TLDetector(object):
@@ -68,13 +68,9 @@ class TLDetector(object):
             self.waypoints_2d = [[waypoint.pose.pose.position.x,
                                   waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
             self.waypoints_tree = KDTree(self.waypoints_2d)
-            # rospy.loginfo("Receive base_waypoints")
 
     def traffic_cb(self, msg):
-        # rospy.loginfo("Receive traffic light")
         self.lights = msg.lights
-        # TODO: This should not be called here!
-        # self.image_cb(msg)
 
     def image_cb(self, msg):
         """Identifies red lights in the incoming camera image and publishes the index

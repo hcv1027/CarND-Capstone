@@ -27,16 +27,16 @@ class Controller(object):
         self.last_vel = 0.0
 
         # Initialize pid-controller
-        # kp = 0.3
-        # ki = 0.1
-        # kd = 0.001
-        kp = 0.55
-        ki = 0.03696
-        kd = 0.002772
+        kp = 0.3
+        ki = 0.1
+        kd = 0.001
+        # kp = 0.55
+        # ki = 0.03696
+        # kd = 0.002772
         self.throttle_controller = PID(kp, ki, kd, mn=-1.0, mx=1.0)
 
         # Initialize low pass filter
-        ts = 0.02 # 1/self.hz ?
+        ts = 0.02  # 1/self.hz ?
         tau = 2 * ts
         self.vel_lpf = LowPassFilter(tau, ts)
 
@@ -44,7 +44,7 @@ class Controller(object):
         self.steer_controller = YawController(
             wheel_base=wheel_base,
             steer_ratio=steer_ratio,
-            min_speed=0.1, # 0.2
+            min_speed=0.1,  # 0.2
             max_lat_accel=max_lat_accel,
             max_steer_angle=max_steer_angle)
 
@@ -60,6 +60,8 @@ class Controller(object):
         self.last_time = current_time
 
         curr_velocity = self.vel_lpf.filt(curr_twist_cmd.twist.linear.x)
+        # rospy.loginfo("curr_velocity: %f, target: %f",
+        #               curr_velocity, target_twist_cmd.twist.linear.x)
 
         # Get throttle
         vel_error = target_twist_cmd.twist.linear.x - curr_twist_cmd.twist.linear.x
@@ -73,7 +75,7 @@ class Controller(object):
 
         # Get brake
         brake = 0.0
-        if linear_vel <= 1e-2 and curr_velocity < 5e-2:
+        if linear_vel <= 1e-1 and curr_velocity <= 1e-1:
             throttle = 0.0
             steer = 0.0
             brake = 700
@@ -84,8 +86,9 @@ class Controller(object):
             throttle = 0
             if decel < self.brake_deadband:
                 decel = 0.
-            brake = decel * self.wheel_radius * (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY)
-        
+            brake = decel * self.wheel_radius * \
+                (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY)
+
         return throttle, brake, steer
 
     def reset(self):
